@@ -1,0 +1,16 @@
+server:
+  port: 8085
+
+spring:
+  data:
+    mongodb:
+      host: localhost
+      username: banula_local
+      password: minikube
+      database: banula_local
+      port: 27017
+
+platform:
+  url: http://localhost:8184/platform-platformban
+  party-id: LON
+  country-code: BR

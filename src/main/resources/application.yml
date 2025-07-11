@@ -1,0 +1,29 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  profiles:
+    active: ${ENVIRONMENT:}
+  data:
+    mongodb:
+      username: ${MONGO_USER:}
+      password: ${MONGO_PASSWORD:}
+      database: ${MONGO_ENV:}
+      host: ${MONGO_ADDRESS:}
+  jackson:
+    default-property-inclusion: NON_NULL
+
+party:
+  role: NSP
+  url: ${NSP_URL:}
+  api-prefix: ${NSP_API_PREFIX:/navigator/ocpi/nsp}
+  api-non-ocpi-prefix: ${NSP_API_NON_OCPI_PREFIX:/navigator/non-ocpi/nsp}
+  log-payload: ${NSP_LOG_PAYLOAD:false}
+  zone-id: Europe/Berlin # current zone Id where the application is running
+  command-timeout: ${NSP_COMMAND_TIMEOUT:120}
+  collection-prefix: "Nsp_"
+
+platform:
+  url: ${PLATFORM_URL:}
+  party-id: ${PLATFORM_PARTY_ID:}
+  country-code: ${PLATFORM_COUNTRY_CODE:}
