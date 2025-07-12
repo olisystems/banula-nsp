@@ -1,5 +1,13 @@
 package com.banula.navigationservice.model.dto;
 
+import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
+import com.banula.openlib.ocpi.model.enums.Role;
+import com.banula.openlib.ocpi.util.OCPILocalDateTimeDeserializer;
+import com.banula.openlib.ocpi.util.OCPILocalDateTimeSerializer;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.mongodb.lang.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,15 +24,15 @@ public class HubClientInfoDTO {
   private String id;
 
   // Core client information (from ClientInfo)
+  @JsonProperty("party_id")
   private String partyId;
+  @JsonProperty("country_code")
   private String countryCode;
-  private String role;
-  private String status;
-  private LocalDateTime lastUpdated;
+  private Role role;
+  private ConnectionStatus status;
 
-  // Audit fields
-  private LocalDateTime createdAt;
-  private LocalDateTime updatedAt;
-  private String createdBy;
-  private String updatedBy;
+  @JsonProperty("last_updated")
+  @JsonDeserialize(using = OCPILocalDateTimeDeserializer.class)
+  @JsonSerialize(using = OCPILocalDateTimeSerializer.class)
+  private LocalDateTime lastUpdated;
 }

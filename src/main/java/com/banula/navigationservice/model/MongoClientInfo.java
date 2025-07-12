@@ -1,34 +1,30 @@
 package com.banula.navigationservice.model;
 
+import com.banula.openlib.ocpi.model.ClientInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@Document(collection = "Nsp_ClientInfo")
-public class MongoClientInfo {
+@SuperBuilder
+@NoArgsConstructor(force = true)
+@Document("#{@MongoCollectionMapper.getHubClientInfoCollectionName()}")
+public class MongoClientInfo extends ClientInfo {
 
   @Id
-  private String id;
+  private String mongoId;
 
-  // Core OCPI client information (following ClientInfo structure)
-  private String partyId;
-  private String countryCode;
-  private String role;
-  private String status;
-  private LocalDateTime lastUpdated;
+  public String getMongoId() {
+    return mongoId;
+  }
 
-  // Audit fields
-  private LocalDateTime createdAt;
-  private LocalDateTime updatedAt;
-  private String createdBy;
-  private String updatedBy;
+  public void setMongoId(String mongoId) {
+    this.mongoId = mongoId;
+  }
+
 }

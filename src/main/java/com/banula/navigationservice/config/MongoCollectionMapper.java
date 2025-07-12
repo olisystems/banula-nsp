@@ -10,11 +10,13 @@ public class MongoCollectionMapper {
 
     private final String ocnCredentialsCollectionName;
     private final String smartLocationCollectionName;
+    private final String hubClientInfoCollectionName;
 
     @Autowired
     public MongoCollectionMapper(ApplicationConfiguration config) {
         String prefix = config.getCollectionPrefix();
         this.smartLocationCollectionName = prefix + "Location";
         this.ocnCredentialsCollectionName = prefix + "OcnCredentials";
+        this.hubClientInfoCollectionName = prefix + "ClientInfo";
     }
 }

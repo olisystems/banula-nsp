@@ -9,7 +9,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 @SuperBuilder
 @NoArgsConstructor(force = true)
-@Document(collection = "Nsp_Location")
+@Document("#{@MongoCollectionMapper.getSmartLocationCollectionName()}")
 public class MongoSmartLocation extends SmartLocation {
 
     @Id
