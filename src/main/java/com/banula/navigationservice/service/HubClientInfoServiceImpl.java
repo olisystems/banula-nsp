@@ -45,14 +45,14 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       query.skip(offset != null ? offset : 0);
       query.limit(limit != null ? limit : Integer.MAX_VALUE);
       query.with(Sort.by(Sort.Direction.DESC, "lastUpdated"));
-      
+
       // Execute query using MongoTemplate
       List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class, mongoCollectionMapper.getHubClientInfoCollectionName());
-      
+
       return hubClientInfos.stream()
           .map(ClientInfoMapper::toHubClientInfoDTO)
           .collect(Collectors.toList());
-          
+
     } catch (Exception e) {
       String errorMessage = "Error occurred while fetching paginated hub client infos: " + e.getLocalizedMessage();
       log.error(errorMessage, e);
@@ -62,29 +62,23 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
 
   /**
    * Create MongoDB query for hub client info with date filtering
-   * 
-   * @param fromDate Start date for filtering (can be null)
-   * @param toDate   End date for filtering (can be null)
+   *
+   * @param dateFrom Start date for filtering (can be null)
+   * @param dateTo   End date for filtering (can be null)
    * @return MongoDB Query object
    */
-  private Query createQueryForHubClientInfo(LocalDateTime fromDate, LocalDateTime toDate) {
+  private Query createQueryForHubClientInfo(LocalDateTime dateFrom, LocalDateTime dateTo) {
     Query query = new Query();
-    
-    // Add date range criteria if dates are provided
-    if (fromDate != null || toDate != null) {
-      Criteria dateCriteria = Criteria.where("lastUpdated");
-      
-      if (fromDate != null) {
-        dateCriteria.gte(fromDate);
-      }
-      
-      if (toDate != null) {
-        dateCriteria.lte(toDate);
-      }
-      
-      query.addCriteria(dateCriteria);
+    Criteria criteria = new Criteria();
+    if (dateFrom != null && dateTo != null) {
+      criteria = Criteria.where("createdAt").gte(dateFrom).lte(dateTo);
+    } else if (dateFrom != null) {
+      criteria = Criteria.where("createdAt").gte(dateFrom);
+    } else if (dateTo != null) {
+      criteria = Criteria.where("createdAt").lte(dateTo);
     }
-    
+
+    query.addCriteria(criteria);
     return query;
   }
 
