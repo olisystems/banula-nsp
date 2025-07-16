@@ -13,8 +13,8 @@ spring:
 
 platform:
   url: http://localhost:9085/platform-platformoli
-  party-id: DE
-  country-code: OLI
+  party-id: OLI
+  country-code: BR
 
 party:
   url: http://localhost:8085
