@@ -25,6 +25,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
+import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
 
 @Slf4j
 @Service
@@ -141,5 +142,25 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       log.warn("Initial HubClientInfo sync failed, NSP will start creating the list dynamically " + ex.getLocalizedMessage());
     }
 
+  }
+
+  @Override
+  public List<HubClientInfoDTO> getHubClientInfosByStatus(ConnectionStatus status) {
+    try {
+      Query query = new Query();
+      query.addCriteria(Criteria.where("status").is(status));
+      query.with(Sort.by(Sort.Direction.DESC, "lastUpdated"));
+
+      List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class, mongoCollectionMapper.getHubClientInfoCollectionName());
+
+      return hubClientInfos.stream()
+          .map(ClientInfoMapper::toHubClientInfoDTO)
+          .collect(Collectors.toList());
+
+    } catch (Exception e) {
+      String errorMessage = "Error occurred while fetching hub client infos by status: " + e.getLocalizedMessage();
+      log.error(errorMessage, e);
+      throw new OCPICustomException(errorMessage);
+    }
   }
 }
