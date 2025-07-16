@@ -12,8 +12,8 @@ spring:
       authentication-database: admin
 
 platform:
-  url: http://localhost:9085/platform-platformoli
-  party-id: OLI
+  url: http://localhost:9085/platform-platformban
+  party-id: BAN
   country-code: BR
 
 party:
