@@ -29,24 +29,24 @@ public class RemoteStillAliveCheck implements Runnable {
     @Override
     public void run() {
         log.info("Starting remote still alive check for parties with PLANNED status");
-        
+
         try {
             // Get all parties with PLANNED status
             List<HubClientInfoDTO> plannedParties = hubClientInfoService.getHubClientInfosByStatus(ConnectionStatus.PLANNED);
-            
+
             if (plannedParties.isEmpty()) {
                 log.info("No parties with PLANNED status found");
                 return;
             }
-            
+
             log.info("Found {} parties with PLANNED status, checking their versions endpoint", plannedParties.size());
-            
+
             for (HubClientInfoDTO party : plannedParties) {
                 checkPartyVersions(party);
             }
 
             log.info("Still alive check completed");
-            
+
         } catch (Exception e) {
             log.error("Error during remote still alive check: {}", e.getMessage(), e);
         }
@@ -66,8 +66,8 @@ public class RemoteStillAliveCheck implements Runnable {
                     return ocnClient.executeOcpiOperation(
                             outflowUrl,
                             null,
-                            party.getCountryCode(),
                             party.getPartyId(),
+                            party.getCountryCode(),
                             new ParameterizedTypeReference<>() {
                             },
                             HttpMethod.GET,
@@ -84,7 +84,12 @@ public class RemoteStillAliveCheck implements Runnable {
             );
             
             // If we get a successful response (status_code 1000), update the party status
-            if (response != null && response.getStatus_code() == 1000 && response.getData() != null && !response.getData().isEmpty()) {
+            if (response != null &&
+                    response.getStatus_code() == 1000 &&
+                    response.getData() != null &&
+                    !response.getData().isEmpty()
+            ) {
+
                 log.info("Party {} ({}) is now online, updating status from PLANNED", 
                         party.getPartyId(), party.getCountryCode());
                 
@@ -103,7 +108,8 @@ public class RemoteStillAliveCheck implements Runnable {
                     updatedParty
                 );
             } else {
-                log.debug("Party {} ({}) is still offline: {}");
+                log.debug("Party {} ({}) is still offline",
+                        party.getPartyId(), party.getCountryCode());
             }
             
         } catch (Exception e) {
