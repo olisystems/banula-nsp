@@ -90,7 +90,7 @@ public class RemoteStillAliveCheck implements Runnable {
                     !response.getData().isEmpty()
             ) {
 
-                log.info("Party {} ({}) is now online, updating status from PLANNED", 
+                log.info("Party {} ({}) is now online, updating status from PLANNED to CONNECTED",
                         party.getPartyId(), party.getCountryCode());
                 
                 // Create updated party info with current timestamp
@@ -98,7 +98,7 @@ public class RemoteStillAliveCheck implements Runnable {
                         .partyId(party.getPartyId())
                         .countryCode(party.getCountryCode())
                         .role(party.getRole())
-                        .status(party.getStatus()) // Keep current status for now
+                        .status(ConnectionStatus.CONNECTED) // Keep current status for now
                         .lastUpdated(java.time.LocalDateTime.now())
                         .build();
                 
