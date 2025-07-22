@@ -32,7 +32,8 @@ public class RemoteStillAliveCheck implements Runnable {
 
         try {
             // Get all parties with PLANNED status
-            List<HubClientInfoDTO> plannedParties = hubClientInfoService.getHubClientInfosByStatus(ConnectionStatus.PLANNED);
+            List<HubClientInfoDTO> plannedParties = hubClientInfoService
+                    .getHubClientInfosByStatus(List.of(ConnectionStatus.PLANNED, ConnectionStatus.CONNECTED));
 
             if (plannedParties.isEmpty()) {
                 log.info("No parties with PLANNED status found");
@@ -51,15 +52,15 @@ public class RemoteStillAliveCheck implements Runnable {
             log.error("Error during remote still alive check: {}", e.getMessage(), e);
         }
     }
-    
+
     private void checkPartyVersions(HubClientInfoDTO party) {
         try {
             // Construct the outflow URL for versions endpoint
             String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/versions";
-            
-            log.debug("Checking versions endpoint for party {} ({}): {}", 
-                     party.getPartyId(), party.getCountryCode(), outflowUrl);
-            
+
+            log.debug("Checking versions endpoint for party {} ({}): {}",
+                    party.getPartyId(), party.getCountryCode(), outflowUrl);
+
             // Request the versions endpoint using OCN client
             CompletableFuture<OcpiResponse<List<VersionResponseDTO>>> future = CompletableFuture.supplyAsync(() -> {
                 try {
@@ -71,28 +72,25 @@ public class RemoteStillAliveCheck implements Runnable {
                             new ParameterizedTypeReference<>() {
                             },
                             HttpMethod.GET,
-                            List.of()
-                    );
+                            List.of());
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
-            
+
             OcpiResponse<List<VersionResponseDTO>> response = future.get(
-                applicationConfiguration.getRemoteCheckTimeout(), 
-                TimeUnit.MILLISECONDS
-            );
-            
+                    applicationConfiguration.getRemoteCheckTimeout(),
+                    TimeUnit.MILLISECONDS);
+
             // If we get a successful response (status_code 1000), update the party status
             if (response != null &&
                     response.getStatus_code() == 1000 &&
                     response.getData() != null &&
-                    !response.getData().isEmpty()
-            ) {
+                    !response.getData().isEmpty()) {
 
                 log.info("Party {} ({}) is now online, updating status from PLANNED to CONNECTED",
                         party.getPartyId(), party.getCountryCode());
-                
+
                 // Create updated party info with current timestamp
                 HubClientInfoDTO updatedParty = HubClientInfoDTO.builder()
                         .partyId(party.getPartyId())
@@ -101,23 +99,21 @@ public class RemoteStillAliveCheck implements Runnable {
                         .status(ConnectionStatus.CONNECTED) // Keep current status for now
                         .lastUpdated(java.time.LocalDateTime.now())
                         .build();
-                
+
                 hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(
-                    party.getPartyId(), 
-                    party.getCountryCode(), 
-                    updatedParty
-                );
+                        party.getPartyId(),
+                        party.getCountryCode(),
+                        updatedParty);
             } else {
                 log.debug("Party {} ({}) is still offline",
                         party.getPartyId(), party.getCountryCode());
             }
-            
+
         } catch (Exception e) {
-            log.debug("Party {} ({}) is still offline: {}", 
-                     party.getPartyId(), party.getCountryCode(), e.getMessage());
+            log.debug("Party {} ({}) is still offline: {}",
+                    party.getPartyId(), party.getCountryCode(), e.getMessage());
             // Party is still offline, no action needed
         }
     }
-    
 
 }

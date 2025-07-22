@@ -31,5 +31,5 @@ platform:
 # Remote check configuration
 remote-check:
   enabled: ${REMOTE_CHECK_ENABLED:true}
-  interval: ${REMOTE_CHECK_INTERVAL:10000}  # 5 minutes in milliseconds
-  timeout: ${REMOTE_CHECK_TIMEOUT:10000}     # 10 seconds timeout
+  interval: ${REMOTE_CHECK_INTERVAL:3600000}  # 1 hour in milliseconds
+  timeout: ${REMOTE_CHECK_TIMEOUT:15000}     # 15 seconds timeout

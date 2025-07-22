@@ -39,7 +39,8 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   private final MongoCollectionMapper mongoCollectionMapper;
 
   @Override
-  public List<HubClientInfoDTO> getPaginatedHubClientInfos(LocalDateTime dateFrom, LocalDateTime dateTo, Integer offset, Integer limit) {
+  public List<HubClientInfoDTO> getPaginatedHubClientInfos(LocalDateTime dateFrom, LocalDateTime dateTo, Integer offset,
+      Integer limit) {
     try {
       // Create query with date filtering
       Query query = createQueryForHubClientInfo(dateFrom, dateTo);
@@ -48,7 +49,8 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       query.with(Sort.by(Sort.Direction.DESC, "lastUpdated"));
 
       // Execute query using MongoTemplate
-      List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class, mongoCollectionMapper.getHubClientInfoCollectionName());
+      List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class,
+          mongoCollectionMapper.getHubClientInfoCollectionName());
 
       return hubClientInfos.stream()
           .map(ClientInfoMapper::toHubClientInfoDTO)
@@ -85,12 +87,15 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
 
   @Override
   public List<HubClientInfoDTO> getHubClientInfoByPartyIdAndCountryCode(String partyId, String countryCode) {
-    return hubClientInfoRepository.findByPartyIdAndCountryCode(partyId, countryCode).stream().map(ClientInfoMapper::toHubClientInfoDTO).collect(Collectors.toList());
+    return hubClientInfoRepository.findByPartyIdAndCountryCode(partyId, countryCode).stream()
+        .map(ClientInfoMapper::toHubClientInfoDTO).collect(Collectors.toList());
   }
 
   @Override
-  public HubClientInfoDTO updateHubClientInfoByPartyIdAndCountryCode(String partyId, String countryCode, HubClientInfoDTO clientInfoDTO) {
-    MongoClientInfo mongoClientInfo = hubClientInfoRepository.findByPartyIdAndCountryCodeAndRole(partyId, countryCode, clientInfoDTO.getRole()).orElse(null);
+  public HubClientInfoDTO updateHubClientInfoByPartyIdAndCountryCode(String partyId, String countryCode,
+      HubClientInfoDTO clientInfoDTO) {
+    MongoClientInfo mongoClientInfo = hubClientInfoRepository
+        .findByPartyIdAndCountryCodeAndRole(partyId, countryCode, clientInfoDTO.getRole()).orElse(null);
     if (mongoClientInfo == null) {
       mongoClientInfo = new MongoClientInfo();
       mongoClientInfo.setPartyId(partyId);
@@ -103,7 +108,8 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   }
 
   public HubClientInfoDTO updateHubClientInfo(HubClientInfoDTO clientInfoDTO) {
-    MongoClientInfo mongoClientInfo = hubClientInfoRepository.findByPartyIdAndCountryCodeAndRole(clientInfoDTO.getPartyId(), clientInfoDTO.getCountryCode(), clientInfoDTO.getRole()).orElse(null);
+    MongoClientInfo mongoClientInfo = hubClientInfoRepository.findByPartyIdAndCountryCodeAndRole(
+        clientInfoDTO.getPartyId(), clientInfoDTO.getCountryCode(), clientInfoDTO.getRole()).orElse(null);
     if (mongoClientInfo == null) {
       mongoClientInfo = new MongoClientInfo();
       mongoClientInfo.setPartyId(clientInfoDTO.getPartyId());
@@ -116,19 +122,18 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   }
 
   @Override
-  public void  syncAllHubClientInfoParties() {
+  public void syncAllHubClientInfoParties() {
     String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/hubclientinfo";
     try {
       OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = ocnClient.executeOcpiOperation(
-              outflowUrl,
-              null,
-              "CH",
-              "OCN",
-              new ParameterizedTypeReference<>() {
-              },
-              HttpMethod.GET,
-              List.of()
-      );
+          outflowUrl,
+          null,
+          "CH",
+          "OCN",
+          new ParameterizedTypeReference<>() {
+          },
+          HttpMethod.GET,
+          List.of());
 
       if (hubClientInfoParties.getStatus_code() > 2000) {
         throw new Exception(hubClientInfoParties.getStatus_message());
@@ -139,19 +144,21 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       }
 
     } catch (Exception ex) {
-      log.warn("Initial HubClientInfo sync failed, NSP will start creating the list dynamically " + ex.getLocalizedMessage());
+      log.warn("Initial HubClientInfo sync failed, NSP will start creating the list dynamically "
+          + ex.getLocalizedMessage());
     }
 
   }
 
   @Override
-  public List<HubClientInfoDTO> getHubClientInfosByStatus(ConnectionStatus status) {
+  public List<HubClientInfoDTO> getHubClientInfosByStatus(List<ConnectionStatus> statuses) {
     try {
       Query query = new Query();
-      query.addCriteria(Criteria.where("status").is(status));
+      query.addCriteria(Criteria.where("status").in(statuses));
       query.with(Sort.by(Sort.Direction.DESC, "lastUpdated"));
 
-      List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class, mongoCollectionMapper.getHubClientInfoCollectionName());
+      List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class,
+          mongoCollectionMapper.getHubClientInfoCollectionName());
 
       return hubClientInfos.stream()
           .map(ClientInfoMapper::toHubClientInfoDTO)
