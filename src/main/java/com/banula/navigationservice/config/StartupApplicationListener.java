@@ -1,11 +1,11 @@
 package com.banula.navigationservice.config;
 
+import com.banula.navigationservice.service.HubClientInfoService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.TimeZone;
 
-import org.jetbrains.annotations.NotNull;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
@@ -19,9 +19,10 @@ import com.banula.openlib.ocpi.util.InfoUtils;
 public class StartupApplicationListener implements ApplicationListener<ApplicationReadyEvent> {
     private final ApplicationConfiguration applicationConfiguration;
     private final PlatformClient platformClient;
+    private final HubClientInfoService hubClientInfoService;
 
     @Override
-    public void onApplicationEvent(@NotNull ApplicationReadyEvent event) {
+    public void onApplicationEvent(ApplicationReadyEvent event) {
         System.setProperty("java.awt.headless", "true");
         log.info("Changed default time zone to  {} ", TimeZone.getDefault().getDisplayName());
         log.info("Open library version: {}", InfoUtils.getLibVersion("com.my-oli", "banula-open-library"));
@@ -41,12 +42,9 @@ public class StartupApplicationListener implements ApplicationListener<Applicati
         log.info("My Non-OCPI URL: {}{} | port: {}", applicationConfiguration.getPartyUrl(),
                 applicationConfiguration.getApiNonOcpiPrefix(),
                 event.getApplicationContext().getEnvironment().getProperty("server.port"));
-        try {
-        } catch (Exception ex) {
-            log.error(String.format("OCN party registration error: %s", ex.getLocalizedMessage()));
-            for (StackTraceElement ste : ex.getStackTrace()) {
-                System.out.println(ste);
-            }
-        }
+
+        log.info("Sync of hubclientinfo from OCN Node started...");
+        hubClientInfoService.syncAllHubClientInfoParties();
+        log.info("Completed sync of hubclientinfo");
     }
 }

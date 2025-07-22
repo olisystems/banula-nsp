@@ -45,10 +45,30 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${platform.country-code}")
     private String countryCode;
 
+    @Value("${remote-check.enabled:true}")
+    private Boolean remoteCheckEnabled;
+
+    @Value("${remote-check.interval:300000}")
+    private Long remoteCheckInterval;
+
+    @Value("${remote-check.timeout:10000}")
+    private Long remoteCheckTimeout;
+
     private OcnVersionDetails ocnVersionDetails;
 
     public void setOcnVersionDetails(OcnVersionDetails ocnVersionDetails) {
         this.ocnVersionDetails = ocnVersionDetails;
     }
 
+    public Boolean getRemoteCheckEnabled() {
+        return remoteCheckEnabled;
+    }
+
+    public Long getRemoteCheckInterval() {
+        return remoteCheckInterval;
+    }
+
+    public Long getRemoteCheckTimeout() {
+        return remoteCheckTimeout;
+    }
 }
