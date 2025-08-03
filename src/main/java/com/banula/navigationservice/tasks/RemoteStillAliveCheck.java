@@ -82,6 +82,13 @@ public class RemoteStillAliveCheck implements Runnable {
                     applicationConfiguration.getRemoteCheckTimeout(),
                     TimeUnit.MILLISECONDS);
 
+            HubClientInfoDTO.HubClientInfoDTOBuilder updatedPartyBuilder = HubClientInfoDTO.builder()
+                    .partyId(party.getPartyId())
+                    .countryCode(party.getCountryCode())
+                    .role(party.getRole())
+                    .lastUpdated(java.time.LocalDateTime.now());
+
+
             // If we get a successful response (status_code 1000), update the party status
             if (response != null &&
                     response.getStatus_code() == 1000 &&
@@ -91,28 +98,39 @@ public class RemoteStillAliveCheck implements Runnable {
                 log.info("Party {} ({}) is now online, updating status from PLANNED to CONNECTED",
                         party.getPartyId(), party.getCountryCode());
 
-                // Create updated party info with current timestamp
-                HubClientInfoDTO updatedParty = HubClientInfoDTO.builder()
-                        .partyId(party.getPartyId())
-                        .countryCode(party.getCountryCode())
-                        .role(party.getRole())
-                        .status(ConnectionStatus.CONNECTED) // Keep current status for now
-                        .lastUpdated(java.time.LocalDateTime.now())
-                        .build();
-
-                hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(
-                        party.getPartyId(),
-                        party.getCountryCode(),
-                        updatedParty);
+                updatedPartyBuilder.status(ConnectionStatus.CONNECTED);
             } else {
-                log.debug("Party {} ({}) is still offline",
+                log.debug("Party {} ({}) is offline",
                         party.getPartyId(), party.getCountryCode());
+                updatedPartyBuilder.status(ConnectionStatus.OFFLINE);
             }
 
+            HubClientInfoDTO updatedParty = updatedPartyBuilder.build();
+            hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(
+                    party.getPartyId(),
+                    party.getCountryCode(),
+                    updatedParty);
         } catch (Exception e) {
-            log.debug("Party {} ({}) is still offline: {}",
+            log.debug("Error trying to update party {} ({}): {}",
                     party.getPartyId(), party.getCountryCode(), e.getMessage());
-            // Party is still offline, no action needed
+        }
+    }
+
+    private void broadcastPartyUpdate(HubClientInfoDTO clientInfo) {
+        try {
+            String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/versions";
+            ocnClient.executeOcpiOperation(
+                    outflowUrl,
+                    null,
+                    "",
+                    "",
+                    new ParameterizedTypeReference<>() {
+                    },
+                    HttpMethod.GET,
+                    List.of());
+        } catch (Exception e) {
+            log.debug("Error broadcasting client info party update {} ({}): {}",
+                    clientInfo.getPartyId(), clientInfo.getCountryCode(), e.getMessage());
         }
     }
 
