@@ -110,6 +110,11 @@ public class RemoteStillAliveCheck implements Runnable {
                     party.getPartyId(),
                     party.getCountryCode(),
                     updatedParty);
+
+            if(party.getStatus() != updatedParty.getStatus()) {
+                broadcastPartyUpdate(updatedParty);
+            }
+
         } catch (Exception e) {
             log.debug("Error trying to update party {} ({}): {}",
                     party.getPartyId(), party.getCountryCode(), e.getMessage());
@@ -118,15 +123,15 @@ public class RemoteStillAliveCheck implements Runnable {
 
     private void broadcastPartyUpdate(HubClientInfoDTO clientInfo) {
         try {
-            String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/versions";
+            String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/hubclientinfo";
             ocnClient.executeOcpiOperation(
                     outflowUrl,
-                    null,
+                    clientInfo,
                     "",
                     "",
                     new ParameterizedTypeReference<>() {
                     },
-                    HttpMethod.GET,
+                    HttpMethod.PUT,
                     List.of());
         } catch (Exception e) {
             log.debug("Error broadcasting client info party update {} ({}): {}",
