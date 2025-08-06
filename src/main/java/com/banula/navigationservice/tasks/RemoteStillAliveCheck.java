@@ -1,8 +1,10 @@
 package com.banula.navigationservice.tasks;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
+import com.banula.navigationservice.service.NSPNotificationService;
 import com.banula.openlib.ocn.client.OcnClient;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.response.VersionResponseDTO;
@@ -25,6 +27,7 @@ public class RemoteStillAliveCheck implements Runnable {
     private final HubClientInfoService hubClientInfoService;
     private final OcnClient ocnClient;
     private final ApplicationConfiguration applicationConfiguration;
+    private final NSPNotificationService nspNotificationService;
 
     @Override
     public void run() {
@@ -112,30 +115,14 @@ public class RemoteStillAliveCheck implements Runnable {
                     updatedParty);
 
             if(party.getStatus() != updatedParty.getStatus()) {
-                broadcastPartyUpdate(updatedParty);
+                nspNotificationService.broadcastHubClientInfoUpdate(
+                        ClientInfoMapper.toMongoClientInfo(updatedParty)
+                );
             }
 
         } catch (Exception e) {
             log.debug("Error trying to update party {} ({}): {}",
                     party.getPartyId(), party.getCountryCode(), e.getMessage());
-        }
-    }
-
-    private void broadcastPartyUpdate(HubClientInfoDTO clientInfo) {
-        try {
-            String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/hubclientinfo";
-            ocnClient.executeOcpiOperation(
-                    outflowUrl,
-                    clientInfo,
-                    "",
-                    "",
-                    new ParameterizedTypeReference<>() {
-                    },
-                    HttpMethod.PUT,
-                    List.of());
-        } catch (Exception e) {
-            log.debug("Error broadcasting client info party update {} ({}): {}",
-                    clientInfo.getPartyId(), clientInfo.getCountryCode(), e.getMessage());
         }
     }
 

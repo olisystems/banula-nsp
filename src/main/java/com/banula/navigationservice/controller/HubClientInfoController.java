@@ -1,7 +1,9 @@
 package com.banula.navigationservice.controller;
 
+import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
+import com.banula.navigationservice.service.NSPNotificationService;
 import com.banula.openlib.ocpi.annotation.AuthorizeHeaders;
 import com.banula.openlib.ocpi.annotation.LogRequest;
 import com.banula.openlib.ocpi.model.OcpiResponse;
@@ -22,6 +24,7 @@ import java.util.List;
 public class HubClientInfoController {
 
   private final HubClientInfoService hubClientInfoService;
+  private final NSPNotificationService notificationService;
 
   @GetMapping
   @LogRequest
@@ -54,6 +57,7 @@ public class HubClientInfoController {
       @PathVariable String countryCode,
       @RequestBody HubClientInfoDTO clientInfoDTO) {
     HubClientInfoDTO updatedClientInfo = hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(partyId, countryCode, clientInfoDTO);
+    notificationService.broadcastHubClientInfoUpdate(ClientInfoMapper.toMongoClientInfo(updatedClientInfo));
     return ResponseEntity.ok(new OcpiResponse<>(updatedClientInfo));
   }
 
