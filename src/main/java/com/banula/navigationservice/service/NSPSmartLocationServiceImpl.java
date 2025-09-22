@@ -114,7 +114,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     @Override
     public SmartLocationDTO getLocationByMaloId(String maloId) {
         MongoSmartLocation smartLocation = smartLocationRepository.findByMarketLocationId(maloId)
-                .orElseThrow(RuntimeException::new);
+                .orElse(null);
         return SmartLocationMapper.toSmartLocationDTO(smartLocation);
     }
 
