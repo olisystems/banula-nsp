@@ -40,11 +40,16 @@ public class HubClientInfoController {
 
   @GetMapping("/{countryCode}/{partyId}")
   @LogRequest
-  public ResponseEntity<OcpiResponse<List<HubClientInfoDTO>>> getHubClientInfoByPartyIdAndCountryCode(
+  public ResponseEntity<OcpiResponse<HubClientInfoDTO>> getHubClientInfoByPartyIdAndCountryCode(
       @PathVariable String partyId,
       @PathVariable String countryCode) {
     List<HubClientInfoDTO> hubClientInfo = hubClientInfoService.getHubClientInfoByPartyIdAndCountryCode(partyId, countryCode);
-    return ResponseEntity.ok(new OcpiResponse<>(hubClientInfo));
+
+    if(!hubClientInfo.isEmpty()) {
+        return ResponseEntity.ok(new OcpiResponse<>(hubClientInfo.get(0)));
+    }
+
+    return ResponseEntity.ok(new OcpiResponse<>(null));
   }
 
   @PutMapping("/{countryCode}/{partyId}")
