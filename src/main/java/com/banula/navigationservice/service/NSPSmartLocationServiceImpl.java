@@ -118,4 +118,10 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         return SmartLocationMapper.toSmartLocationDTO(smartLocation);
     }
 
+    @Override
+    public List<SmartLocationDTO> getAllLocations() {
+        List<MongoSmartLocation> locations = smartLocationRepository.findAll();
+        return SmartLocationMapper.toListSmartLocationDTO(locations);
+    }
+
 }
