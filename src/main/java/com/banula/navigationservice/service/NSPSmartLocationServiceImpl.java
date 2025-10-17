@@ -2,7 +2,6 @@ package com.banula.navigationservice.service;
 
 import com.banula.navigationservice.mapper.SmartLocationMapper;
 import com.banula.navigationservice.model.MongoSmartLocation;
-import com.banula.navigationservice.config.MongoCollectionMapper;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
@@ -10,6 +9,7 @@ import com.banula.openlib.ocpi.custom.smartlocations.validations.SmartLocationCr
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -21,7 +21,6 @@ import java.util.List;
 public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     private final SmartLocationRepository smartLocationRepository;
-    private final MongoCollectionMapper mongoCollectionMapper;
 
     @Override
     public List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId) {
@@ -32,7 +31,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     @Override
     public SmartLocationDTO getLocation(String countryCode, String partyId, String locationId) {
         MongoSmartLocation smartLocation = smartLocationRepository.findByCompositeKey(countryCode, partyId, locationId)
-                .orElseThrow(RuntimeException::new);
+                .orElse(null);
         return SmartLocationMapper.toSmartLocationDTO(smartLocation);
     }
 
@@ -115,8 +114,14 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     @Override
     public SmartLocationDTO getLocationByMaloId(String maloId) {
         MongoSmartLocation smartLocation = smartLocationRepository.findByMarketLocationId(maloId)
-                .orElseThrow(RuntimeException::new);
+                .orElse(null);
         return SmartLocationMapper.toSmartLocationDTO(smartLocation);
+    }
+
+    @Override
+    public List<SmartLocationDTO> getAllLocations() {
+        List<MongoSmartLocation> locations = smartLocationRepository.findAll();
+        return SmartLocationMapper.toListSmartLocationDTO(locations);
     }
 
 }
