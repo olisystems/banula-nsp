@@ -41,12 +41,5 @@ public class StartupApplicationListener implements ApplicationListener<Applicati
         log.info("My Non-OCPI URL: {}{} | port: {}", applicationConfiguration.getPartyUrl(),
                 applicationConfiguration.getApiNonOcpiPrefix(),
                 event.getApplicationContext().getEnvironment().getProperty("server.port"));
-        try {
-        } catch (Exception ex) {
-            log.error(String.format("OCN party registration error: %s", ex.getLocalizedMessage()));
-            for (StackTraceElement ste : ex.getStackTrace()) {
-                System.out.println(ste);
-            }
-        }
     }
 }
