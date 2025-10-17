@@ -27,3 +27,9 @@ platform:
   url: ${PLATFORM_URL:}
   party-id: ${PLATFORM_PARTY_ID:}
   country-code: ${PLATFORM_COUNTRY_CODE:}
+
+# Remote check configuration
+remote-check:
+  enabled: ${REMOTE_CHECK_ENABLED:true}
+  interval: ${REMOTE_CHECK_INTERVAL:3600000}  # 1 hour in milliseconds
+  timeout: ${REMOTE_CHECK_TIMEOUT:15000}     # 15 seconds timeout

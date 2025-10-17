@@ -9,8 +9,12 @@ spring:
       password: minikube
       database: banula_local
       port: 27017
+      authentication-database: admin
 
 platform:
-  url: http://localhost:8184/platform-platformban
-  party-id: LON
+  url: http://localhost:9085/platform-platformban
+  party-id: BAN
   country-code: BR
+
+party:
+  url: http://localhost:8085

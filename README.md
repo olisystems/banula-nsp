@@ -15,6 +15,7 @@ This repository contains a Navigation Service Provider (NSP) implementation that
 
 - **Smart Locations**: Enhanced location data management with additional features
 - **OCN Credentials**: Management of Open Charging Network credentials
+- **Hub Client Info**: Management of hub client information, connection status, and supported modules
 
 ## React Application
 
@@ -153,3 +154,14 @@ Common issues and their solutions:
 - **Missing collections**: Verify MongoDB permissions and database existence
 
 For more detailed logs, adjust the logging levels in the properties file.
+
+
+## Author
+
+<b>OLI Systems GmbH</b>
+
+Contributors:
+
+- [Matheus Rosendo](https://github.com/matheusrosendo) 
+- [Diego Rosales](https://github.com/dv-rosales)
+- [Elton Saraci](https://github.com/EltonSaraci99)
