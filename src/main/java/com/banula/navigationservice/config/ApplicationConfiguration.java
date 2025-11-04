@@ -59,6 +59,7 @@ public class ApplicationConfiguration implements PlatformConfiguration {
 
     private HashMap<String, OcnVersionDetails> ocnVersionDetails;
 
+    @Override
     public void setOcnVersionDetails(String tenantId, OcnVersionDetails _ocnVersionDetails) {
         if (this.ocnVersionDetails == null) {
             this.ocnVersionDetails = new HashMap<String, OcnVersionDetails>();
