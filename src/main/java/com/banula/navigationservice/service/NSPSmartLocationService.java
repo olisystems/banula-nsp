@@ -11,5 +11,7 @@ public interface NSPSmartLocationService {
 
     SmartLocationDTO getLocationByMaloId(String maloId);
 
+    List<SmartLocationDTO> getAllLocations();
+
     void saveSmartLocation(String id, String countryCode, String partyId, SmartLocationDTO smartLocationDTO);
 }

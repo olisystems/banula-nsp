@@ -31,6 +31,13 @@ public class NonOcpiSmartLocationController {
     protected final NSPSmartLocationService nspSmartLocationService;
     protected final ApplicationConfiguration applicationConfiguration;
 
+    @GetMapping
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<List<SmartLocationDTO>>> getAllLocations() {
+        return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.getAllLocations()));
+    }
+
     @GetMapping("/{countryCode}/{partyId}")
     @LogRequest
     @CrossOrigin

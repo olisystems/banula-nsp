@@ -59,7 +59,7 @@ public class RemoteStillAliveCheck implements Runnable {
     private void checkPartyVersions(HubClientInfoDTO party) {
         try {
             // Construct the outflow URL for versions endpoint
-            String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/versions";
+            String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2.1/versions";
 
             log.debug("Checking versions endpoint for party {} ({}): {}",
                     party.getPartyId(), party.getCountryCode(), outflowUrl);
