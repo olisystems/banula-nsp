@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
+
 import com.banula.openlib.ocn.model.OcnVersionDetails;
 import com.banula.openlib.ocpi.model.enums.Role;
 import com.banula.openlib.ocpi.platform.PlatformConfiguration;
@@ -13,6 +15,7 @@ import com.banula.openlib.ocpi.platform.PlatformConfiguration;
 @Configuration
 @EnableConfigurationProperties
 @Getter
+@Setter
 public class ApplicationConfiguration implements PlatformConfiguration {
 
     @Value("${party.url}")
@@ -54,21 +57,13 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${remote-check.timeout:10000}")
     private Long remoteCheckTimeout;
 
-    private OcnVersionDetails ocnVersionDetails;
+    private HashMap<String, OcnVersionDetails> ocnVersionDetails;
 
-    public void setOcnVersionDetails(OcnVersionDetails ocnVersionDetails) {
-        this.ocnVersionDetails = ocnVersionDetails;
+    public void setOcnVersionDetails(String tenantId, OcnVersionDetails _ocnVersionDetails) {
+        if (this.ocnVersionDetails == null) {
+            this.ocnVersionDetails = new HashMap<String, OcnVersionDetails>();
+        }
+        this.ocnVersionDetails.put(tenantId, _ocnVersionDetails);
     }
 
-    public Boolean getRemoteCheckEnabled() {
-        return remoteCheckEnabled;
-    }
-
-    public Long getRemoteCheckInterval() {
-        return remoteCheckInterval;
-    }
-
-    public Long getRemoteCheckTimeout() {
-        return remoteCheckTimeout;
-    }
 }
