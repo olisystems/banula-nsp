@@ -123,13 +123,13 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
 
   @Override
   public void syncAllHubClientInfoParties() {
-    String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2/hubclientinfo";
+    String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2.1/hubclientinfo";
     try {
       OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = ocnClient.executeOcpiOperation(
           outflowUrl,
           null,
-          "CH",
           "OCN",
+          "CH",
           new ParameterizedTypeReference<>() {
           },
           HttpMethod.GET,
