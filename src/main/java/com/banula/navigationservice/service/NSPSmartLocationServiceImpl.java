@@ -36,79 +36,82 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     }
 
     @Override
-    public void saveSmartLocation(@Validated(SmartLocationCreateGroup.class) String id, String countryCode,
+    public SmartLocationDTO saveSmartLocation(@Validated(SmartLocationCreateGroup.class) String id, String countryCode,
             String partyId, SmartLocationDTO smartLocationDTO) {
-        // Check if location already exists
-        MongoSmartLocation existingLocation = null;
-        if (id != null) {
-            existingLocation = smartLocationRepository.findByCompositeKey(countryCode, partyId, id).orElse(null);
+        if (id == null) {
+            return null;
         }
 
-        if (existingLocation != null) {
-            // Update only the fields that are provided in the DTO
-            if (smartLocationDTO.getMarketLocationId() != null) {
-                existingLocation.setMarketLocationId(smartLocationDTO.getMarketLocationId());
-            }
-            if (smartLocationDTO.getMeteringLocationId() != null) {
-                existingLocation.setMeteringLocationId(smartLocationDTO.getMeteringLocationId());
-            }
-            if (smartLocationDTO.getDsoMarketPartnerId() != null) {
-                existingLocation.setDsoMarketPartnerId(smartLocationDTO.getDsoMarketPartnerId());
-            }
-            if (smartLocationDTO.getTsoMarketPartnerId() != null) {
-                existingLocation.setTsoMarketPartnerId(smartLocationDTO.getTsoMarketPartnerId());
-            }
-            if (smartLocationDTO.getMpoMarketPartnerId() != null) {
-                existingLocation.setMpoMarketPartnerId(smartLocationDTO.getMpoMarketPartnerId());
-            }
-            if (smartLocationDTO.getMeteringDataSource() != null) {
-                existingLocation.setMeteringDataSource(smartLocationDTO.getMeteringDataSource());
-            }
-            if (smartLocationDTO.getSmartMeterId() != null) {
-                existingLocation.setSmartMeterId(smartLocationDTO.getSmartMeterId());
-            }
-            if (smartLocationDTO.getMessageQueueUrl() != null) {
-                existingLocation.setMessageQueueUrl(smartLocationDTO.getMessageQueueUrl());
-            }
-            if (smartLocationDTO.getPublish() != null) {
-                existingLocation.setPublish(smartLocationDTO.getPublish());
-            }
-            // Handle default supplier
-            if (smartLocationDTO.getDefaultSupplier() != null) {
-                // Create new DefaultSupplier instance if it doesn't exist
-                if (existingLocation.getDefaultSupplier() == null) {
-                    existingLocation.setDefaultSupplier(
-                            DefaultSupplier.builder()
-                                    .supplierMarketPartnerId(
-                                            smartLocationDTO.getDefaultSupplier().getSupplierMarketPartnerId())
-                                    .bkvId(smartLocationDTO.getDefaultSupplier().getBkvId())
-                                    .balancingGroupEicId(smartLocationDTO.getDefaultSupplier().getBalancingGroupEicId())
-                                    .build());
-                } else {
-                    // Update existing DefaultSupplier fields
-                    if (smartLocationDTO.getDefaultSupplier().getSupplierMarketPartnerId() != null) {
-                        existingLocation.getDefaultSupplier().setSupplierMarketPartnerId(
-                                smartLocationDTO.getDefaultSupplier().getSupplierMarketPartnerId());
-                    }
-                    if (smartLocationDTO.getDefaultSupplier().getBkvId() != null) {
-                        existingLocation.getDefaultSupplier().setBkvId(
-                                smartLocationDTO.getDefaultSupplier().getBkvId());
-                    }
-                    if (smartLocationDTO.getDefaultSupplier().getBalancingGroupEicId() != null) {
-                        existingLocation.getDefaultSupplier().setBalancingGroupEicId(
-                                smartLocationDTO.getDefaultSupplier().getBalancingGroupEicId());
-                    }
+        MongoSmartLocation existingLocation = smartLocationRepository.findByCompositeKey(countryCode, partyId, id)
+                .orElse(null);
+        if (existingLocation == null) {
+            return null;
+        }
+
+        // Update only the fields that are provided in the DTO
+        if (smartLocationDTO.getMarketLocationId() != null) {
+            existingLocation.setMarketLocationId(smartLocationDTO.getMarketLocationId());
+        }
+        if (smartLocationDTO.getMeteringLocationId() != null) {
+            existingLocation.setMeteringLocationId(smartLocationDTO.getMeteringLocationId());
+        }
+        if (smartLocationDTO.getDsoMarketPartnerId() != null) {
+            existingLocation.setDsoMarketPartnerId(smartLocationDTO.getDsoMarketPartnerId());
+        }
+        if (smartLocationDTO.getTsoMarketPartnerId() != null) {
+            existingLocation.setTsoMarketPartnerId(smartLocationDTO.getTsoMarketPartnerId());
+        }
+        if (smartLocationDTO.getMpoMarketPartnerId() != null) {
+            existingLocation.setMpoMarketPartnerId(smartLocationDTO.getMpoMarketPartnerId());
+        }
+        if (smartLocationDTO.getMeteringDataSource() != null) {
+            existingLocation.setMeteringDataSource(smartLocationDTO.getMeteringDataSource());
+        }
+        if (smartLocationDTO.getSmartMeterId() != null) {
+            existingLocation.setSmartMeterId(smartLocationDTO.getSmartMeterId());
+        }
+        if (smartLocationDTO.getMessageQueueUrl() != null) {
+            existingLocation.setMessageQueueUrl(smartLocationDTO.getMessageQueueUrl());
+        }
+        if (smartLocationDTO.getPublish() != null) {
+            existingLocation.setPublish(smartLocationDTO.getPublish());
+        }
+        // Handle default supplier
+        if (smartLocationDTO.getDefaultSupplier() != null) {
+            // Create new DefaultSupplier instance if it doesn't exist
+            if (existingLocation.getDefaultSupplier() == null) {
+                existingLocation.setDefaultSupplier(
+                        DefaultSupplier.builder()
+                                .supplierMarketPartnerId(
+                                        smartLocationDTO.getDefaultSupplier().getSupplierMarketPartnerId())
+                                .bkvId(smartLocationDTO.getDefaultSupplier().getBkvId())
+                                .balancingGroupEicId(smartLocationDTO.getDefaultSupplier().getBalancingGroupEicId())
+                                .build());
+            } else {
+                // Update existing DefaultSupplier fields
+                if (smartLocationDTO.getDefaultSupplier().getSupplierMarketPartnerId() != null) {
+                    existingLocation.getDefaultSupplier().setSupplierMarketPartnerId(
+                            smartLocationDTO.getDefaultSupplier().getSupplierMarketPartnerId());
+                }
+                if (smartLocationDTO.getDefaultSupplier().getBkvId() != null) {
+                    existingLocation.getDefaultSupplier().setBkvId(
+                            smartLocationDTO.getDefaultSupplier().getBkvId());
+                }
+                if (smartLocationDTO.getDefaultSupplier().getBalancingGroupEicId() != null) {
+                    existingLocation.getDefaultSupplier().setBalancingGroupEicId(
+                            smartLocationDTO.getDefaultSupplier().getBalancingGroupEicId());
                 }
             }
-
-            // Always ensure countryCode and partyId are set
-            existingLocation.setCountryCode(countryCode);
-            existingLocation.setPartyId(partyId);
-
-            // Save the updated entity
-            smartLocationRepository.save(existingLocation);
-            log.info("Updated existing location with ID: {}", existingLocation.getId());
         }
+
+        // Always ensure countryCode and partyId are set
+        existingLocation.setCountryCode(countryCode);
+        existingLocation.setPartyId(partyId);
+
+        // Save the updated entity
+        smartLocationRepository.save(existingLocation);
+        log.info("Updated existing location with ID: {}", existingLocation.getId());
+        return SmartLocationMapper.toSmartLocationDTO(existingLocation);
     }
 
     @Override
