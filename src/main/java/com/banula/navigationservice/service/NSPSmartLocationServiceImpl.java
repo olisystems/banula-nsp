@@ -110,7 +110,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
         // Save the updated entity
         smartLocationRepository.save(existingLocation);
-        log.info("Updated existing location with ID: {}", existingLocation.getId());
+        log.info("Saved location with ID: {}", existingLocation.getId());
         return SmartLocationMapper.toSmartLocationDTO(existingLocation);
     }
 
