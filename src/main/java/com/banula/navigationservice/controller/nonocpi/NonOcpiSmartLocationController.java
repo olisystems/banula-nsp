@@ -75,7 +75,13 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "id") String id,
             @RequestBody SmartLocationDTO smartLocationDTO) {
-        nspSmartLocationService.saveSmartLocation(id, countryCode, party_id, smartLocationDTO);
-        return ResponseEntity.ok(new OcpiResponse<>(smartLocationDTO));
+        SmartLocationDTO updatedLocation = nspSmartLocationService.saveSmartLocation(id, countryCode, party_id,
+                smartLocationDTO);
+
+        if (updatedLocation == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
     }
 }

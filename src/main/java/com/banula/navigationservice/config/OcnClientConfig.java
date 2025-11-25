@@ -21,8 +21,6 @@ public class OcnClientConfig {
         String backendUrl = applicationConfiguration.getPartyUrl() + applicationConfiguration.getApiPrefix()
                 + "/2.2.1/versions";
         return new OcnClientBuilder()
-                .setFrom(applicationConfiguration.getCountryCode(), applicationConfiguration.getPartyId())
-                .setTo(applicationConfiguration.getCountryCode(), applicationConfiguration.getPartyId())
                 .setNodeUrl(applicationConfiguration.getPlatformUrl())
                 .setOcpiRoles(List.of(applicationConfiguration.getRole()))
                 .setPartyBackendUrl(backendUrl)

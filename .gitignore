@@ -42,7 +42,7 @@ frontend/dist-ssr
 frontend/node
 src/main/resources/static/*
 
-mvnw
-mvnw.cmd
+mvnw*
 .mvn
 **/application-local.yml
+start.sh
