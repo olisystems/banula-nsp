@@ -45,4 +45,7 @@ src/main/resources/static/*
 mvnw*
 .mvn
 **/application-local.yml
+
+# Local scripts
 start.sh
+stop.sh
