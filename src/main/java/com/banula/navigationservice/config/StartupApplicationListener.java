@@ -27,11 +27,9 @@ public class StartupApplicationListener implements ApplicationListener<Applicati
         log.info("Changed default time zone to  {} ", TimeZone.getDefault().getDisplayName());
         log.info("Open library version: {}", InfoUtils.getLibVersion("com.my-oli", "banula-open-library"));
 
-        log.info("My OCPI URL: {}{} | port: {}", applicationConfiguration.getPartyUrl(),
-                applicationConfiguration.getApiPrefix(),
+        log.info("My OCPI URL: {}/api/v1/internal/ocpi/2.2.1 | port: {}", applicationConfiguration.getPartyUrl(),
                 event.getApplicationContext().getEnvironment().getProperty("server.port"));
-        log.info("My Non-OCPI URL: {}{} | port: {}", applicationConfiguration.getPartyUrl(),
-                applicationConfiguration.getApiNonOcpiPrefix(),
+        log.info("My Non-OCPI URL: {}/api/v1 | port: {}", applicationConfiguration.getPartyUrl(),
                 event.getApplicationContext().getEnvironment().getProperty("server.port"));
 
         log.info("Sync of hubclientinfo from OCN Node started...");

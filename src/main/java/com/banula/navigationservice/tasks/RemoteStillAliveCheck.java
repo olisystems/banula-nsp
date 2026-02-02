@@ -3,7 +3,7 @@ package com.banula.navigationservice.tasks;
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
-import com.banula.openlib.ocn.client.OcnClient;
+import com.banula.openlib.ocpi.platform.PlatformClient;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.response.VersionResponseDTO;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
@@ -12,6 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import com.banula.openlib.ocpi.model.enums.InterfaceRole;
+import com.banula.openlib.ocpi.model.enums.ModuleID;
+import java.util.Map;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -23,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class RemoteStillAliveCheck implements Runnable {
 
     private final HubClientInfoService hubClientInfoService;
-    private final OcnClient ocnClient;
+    private final PlatformClient platformClient;
     private final ApplicationConfiguration applicationConfiguration;
 
     @Override
@@ -61,18 +64,21 @@ public class RemoteStillAliveCheck implements Runnable {
             log.debug("Checking versions endpoint for party {} ({}): {}",
                     party.getPartyId(), party.getCountryCode(), outflowUrl);
 
-            // Request the versions endpoint using OCN client
+            // Request the versions endpoint using Platform client
             CompletableFuture<OcpiResponse<List<VersionResponseDTO>>> future = CompletableFuture.supplyAsync(() -> {
                 try {
-                    return ocnClient.executeOcpiOperation(
-                            outflowUrl,
-                            null,
+                    return platformClient.sendOutflowRequest(
+                            applicationConfiguration.getPlatformUrl(),
                             party.getPartyId(),
                             party.getCountryCode(),
-                            new ParameterizedTypeReference<>() {
-                            },
+                            InterfaceRole.SENDER,
+                            ModuleID.VERSIONS,
                             HttpMethod.GET,
-                            List.of());
+                            null,
+                            new ParameterizedTypeReference<OcpiResponse<List<VersionResponseDTO>>>() {
+                            },
+                            List.of(),
+                            Map.of());
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

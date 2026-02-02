@@ -1,6 +1,5 @@
 package com.banula.navigationservice.controller.nonocpi;
 
-
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
 import com.banula.openlib.ocpi.annotation.AuthorizeHeaders;
@@ -12,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("${party.api-non-ocpi-prefix}/hubclientinfo")
+@RequestMapping("/api/v1/hubclientinfo")
 // @Tag(name="CpoNonOcpiLocation")
 @Slf4j
 @AllArgsConstructor
@@ -27,7 +26,8 @@ public class NonOcpiHubClientInfoController {
             @PathVariable String partyId,
             @PathVariable String countryCode,
             @RequestBody HubClientInfoDTO clientInfoDTO) {
-        HubClientInfoDTO updatedClientInfo = hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(partyId, countryCode, clientInfoDTO);
+        HubClientInfoDTO updatedClientInfo = hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(partyId,
+                countryCode, clientInfoDTO);
         return ResponseEntity.ok(new OcpiResponse<>(updatedClientInfo));
     }
 }

@@ -10,11 +10,9 @@ export default defineConfig({
   define: {
     "process.env": {
       routerBasename: "/navigator/ui",
-      nonOcpiPath:
-        process.env.NSP_API_NON_OCPI_PREFIX || "/navigator/non-ocpi/nsp",
+      nonOcpiPath: process.env.NSP_API_NON_OCPI_PREFIX || "/api/v1",
       serviceUrl: process.env.BASE_URL || "http://localhost:8085",
-      tokenB:
-        process.env.NSP_TOKEN_B || "tokenB-br-lon",
+      tokenB: process.env.NSP_TOKEN_B || "tokenB-br-lon",
     },
   },
   resolve: {

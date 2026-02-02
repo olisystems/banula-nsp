@@ -16,5 +16,5 @@ platform:
   party-id: BAN
   country-code: BR
 
-party:
+api:
   url: http://localhost:8085
