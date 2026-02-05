@@ -31,3 +31,11 @@ remote-check:
   enabled: ${REMOTE_CHECK_ENABLED:true}
   interval: ${REMOTE_CHECK_INTERVAL:3600000} # 1 hour in milliseconds
   timeout: ${REMOTE_CHECK_TIMEOUT:15000} # 15 seconds timeout
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    path: /api-docs
+    enabled: ${SWAGGER_ENABLED:true}
