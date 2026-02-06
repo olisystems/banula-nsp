@@ -53,3 +53,5 @@ stop.sh
 #Mac specific files
 .DS_Store
 **/.DS_Store
+
+local
