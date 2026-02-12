@@ -22,7 +22,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
-@RequestMapping("/api/v1/locations")
+@RequestMapping("/api/v1/internal/locations")
 // @Tag(name="CpoNonOcpiLocation")
 @Slf4j
 @AllArgsConstructor

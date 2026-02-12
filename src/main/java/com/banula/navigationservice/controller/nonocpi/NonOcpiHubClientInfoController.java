@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/hubclientinfo")
+@RequestMapping("/api/v1/internal/hubclientinfo")
 // @Tag(name="CpoNonOcpiLocation")
 @Slf4j
 @AllArgsConstructor
