@@ -1,6 +1,7 @@
 package com.banula.navigationservice.controller.nonocpi;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -67,19 +68,25 @@ public class NonOcpiSmartLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(smartLocation));
     }
 
-    @PostMapping("/{countryCode}/{partyId}/{id}")
+    @PostMapping("/{countryCode}/{partyId}/{locationId}")
     @LogRequest
     @CrossOrigin
-    public ResponseEntity<OcpiResponse<SmartLocationDTO>> saveSmartLocation(
+    public ResponseEntity<?> saveSmartLocation(
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
-            @PathVariable(value = "id") String id,
+            @PathVariable(value = "locationId") String locationId,
             @RequestBody SmartLocationDTO smartLocationDTO) {
-        SmartLocationDTO updatedLocation = nspSmartLocationService.saveSmartLocation(id, countryCode, party_id,
+        SmartLocationDTO updatedLocation = nspSmartLocationService.saveSmartLocation(locationId, countryCode, party_id,
                 smartLocationDTO);
 
         if (updatedLocation == null) {
-            return ResponseEntity.notFound().build();
+            String locationKey = countryCode + "*" + party_id + "*" + locationId;
+            Map<String, String> errorResponse = new java.util.LinkedHashMap<>();
+            errorResponse.put("timestamp", java.time.Instant.now().toString());
+            errorResponse.put("error", "Not Found");
+            errorResponse.put("message", "Location " + locationKey + " not found");
+            errorResponse.put("path", "/api/v1/internal/locations/" + countryCode + "/" + party_id + "/" + locationId);
+            return ResponseEntity.status(404).body(errorResponse);
         }
 
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));

@@ -33,6 +33,9 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${api.collection-prefix}")
     private String collectionPrefix;
 
+    @Value("${api.log-curl-command}")
+    private boolean logCurlCommand;
+
     @Value("${platform.url}")
     private String platformUrl;
 
@@ -53,6 +56,10 @@ public class ApplicationConfiguration implements PlatformConfiguration {
             this.ocnVersionDetails = new HashMap<String, OcnVersionDetails>();
         }
         this.ocnVersionDetails.put(tenantId, _ocnVersionDetails);
+    }
+
+    public boolean isToLogCurlCommands() {
+        return logCurlCommand;
     }
 
 }

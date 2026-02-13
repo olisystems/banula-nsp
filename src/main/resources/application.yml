@@ -20,6 +20,7 @@ api:
   zone-id: Europe/Berlin # current zone Id where the application is running
   command-timeout: ${NSP_COMMAND_TIMEOUT:120}
   collection-prefix: "Nsp_"
+  log-curl-command: ${NSP_LOG_CURL_COMMAND:false}
 
 platform:
   url: ${PLATFORM_URL:}
