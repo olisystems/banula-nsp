@@ -14,7 +14,7 @@ spring:
 platform:
   url: http://localhost:8184
   party-id: BAN
-  country-code: BR
+  country-code: DE
 
 api:
   url: http://localhost:8085
