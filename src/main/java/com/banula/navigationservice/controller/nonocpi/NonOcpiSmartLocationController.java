@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
@@ -74,7 +76,8 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId,
-            @RequestBody SmartLocationDTO smartLocationDTO) {
+            @RequestBody SmartLocationDTO smartLocationDTO,
+            HttpServletRequest request) {
         SmartLocationDTO updatedLocation = nspSmartLocationService.saveSmartLocation(locationId, countryCode, party_id,
                 smartLocationDTO);
 
