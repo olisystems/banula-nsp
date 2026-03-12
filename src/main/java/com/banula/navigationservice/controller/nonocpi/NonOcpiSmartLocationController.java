@@ -50,7 +50,7 @@ public class NonOcpiSmartLocationController {
                 countryCode, party_id)));
     }
 
-    @GetMapping("/{maloId}")
+    @GetMapping("/by-malo/{maloId}")
     @LogRequest
     @CrossOrigin
     public ResponseEntity<OcpiResponse<SmartLocationDTO>> getLocationsByMaloId(
