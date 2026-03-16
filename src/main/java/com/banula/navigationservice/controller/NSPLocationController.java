@@ -109,7 +109,6 @@ public class NSPLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
-    @ValidateLocation
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}" })
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> patchLocation(
