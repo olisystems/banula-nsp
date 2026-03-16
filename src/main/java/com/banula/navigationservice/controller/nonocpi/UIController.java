@@ -1,6 +1,6 @@
 package com.banula.navigationservice.controller.nonocpi;
 
-
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -44,7 +44,8 @@ public class UIController {
                 .body(resource);
     }
 
-
+    @Operation(summary = "Redirect to Navigator UI", description = "Serves the navigation service UI application.\n\n" +
+            "Example URL: http://localhost:8085/navigator/ui")
     @RequestMapping(value = { "/**" })
     public Resource redirect() {
         return new ClassPathResource("/static/index.html");

@@ -11,6 +11,9 @@ import com.banula.openlib.ocpi.model.dto.LocationDTO;
 import com.banula.openlib.ocpi.model.vo.Connector;
 import com.banula.openlib.ocpi.model.vo.EVSE;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -109,6 +112,13 @@ public class NSPLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
+    @Operation(summary = "Partially update a location", description = "Updates only the specified fields of a location. Unspecified fields remain unchanged.\n\n"
+            +
+            "Example URL: http://localhost:8085/api/v1/internal/ocpi/2.2.1/locations/DE/ABC/ARCMIND1", requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(mediaType = "application/json", examples = @ExampleObject(name = "Minimal PATCH Example", value = """
+                    {
+                        "name": "Mukunds second lab"
+                    }
+                    """))))
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}" })
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> patchLocation(
