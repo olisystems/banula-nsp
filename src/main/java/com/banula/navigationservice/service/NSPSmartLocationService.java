@@ -13,7 +13,7 @@ public interface NSPSmartLocationService {
 
         List<SmartLocationDTO> getAllLocations();
 
-        SmartLocationDTO patchSmartLocation(String id, String countryCode, String partyId,
+        SmartLocationDTO patchSmartLocation(String countryCode, String partyId, String id,
                         SmartLocationDTO smartLocationDTO);
 
 }

@@ -85,7 +85,7 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "locationId") String locationId,
             @RequestBody SmartLocationDTO smartLocationDTO,
             HttpServletRequest request) {
-        SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(locationId, countryCode, party_id,
+        SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, party_id, locationId,
                 smartLocationDTO);
 
         if (updatedLocation == null) {
