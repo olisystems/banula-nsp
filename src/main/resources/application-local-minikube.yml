@@ -12,9 +12,9 @@ spring:
       authentication-database: admin
 
 platform:
-  url: http://localhost:9085/platform-platformban
+  url: http://localhost:8184
   party-id: BAN
-  country-code: BR
+  country-code: DE
 
-party:
+api:
   url: http://localhost:8085

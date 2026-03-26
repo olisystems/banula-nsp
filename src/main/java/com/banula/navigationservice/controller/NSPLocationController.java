@@ -18,7 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("${party.api-prefix}/2.2.1/locations")
+@RequestMapping("/api/v1/internal/ocpi/2.2.1/locations")
 @AllArgsConstructor
 @Slf4j
 public class NSPLocationController {
@@ -63,7 +63,7 @@ public class NSPLocationController {
      * 
      * @param locationDTO The request body contains the new/updated object.
      * @param countryCode Country code, required.
-     * @param partyId    Party ID (Provider ID), required.
+     * @param partyId     Party ID (Provider ID), required.
      * @param locationId  Location.id, required.
      */
 

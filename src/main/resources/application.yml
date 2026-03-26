@@ -13,15 +13,14 @@ spring:
   jackson:
     default-property-inclusion: NON_NULL
 
-party:
+api:
   role: NSP
   url: ${NSP_URL:}
-  api-prefix: ${NSP_API_PREFIX:/navigator/ocpi/nsp}
-  api-non-ocpi-prefix: ${NSP_API_NON_OCPI_PREFIX:/navigator/non-ocpi/nsp}
   log-payload: ${NSP_LOG_PAYLOAD:false}
   zone-id: Europe/Berlin # current zone Id where the application is running
   command-timeout: ${NSP_COMMAND_TIMEOUT:120}
   collection-prefix: "Nsp_"
+  log-curl-command: ${NSP_LOG_CURL_COMMAND:false}
 
 platform:
   url: ${PLATFORM_URL:}
@@ -31,5 +30,13 @@ platform:
 # Remote check configuration
 remote-check:
   enabled: ${REMOTE_CHECK_ENABLED:true}
-  interval: ${REMOTE_CHECK_INTERVAL:3600000}  # 1 hour in milliseconds
-  timeout: ${REMOTE_CHECK_TIMEOUT:15000}     # 15 seconds timeout
+  interval: ${REMOTE_CHECK_INTERVAL:3600000} # 1 hour in milliseconds
+  timeout: ${REMOTE_CHECK_TIMEOUT:15000} # 15 seconds timeout
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    path: /api-docs
+    enabled: ${SWAGGER_ENABLED:true}

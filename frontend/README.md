@@ -73,7 +73,7 @@ define: {
     routerBasename: "/navigator/ui",
 
     // API path for non-OCPI endpoints
-    nonOcpiPath: process.env.NSP_API_NON_OCPI_PREFIX || "/navigator/non-ocpi/nsp",
+    nonOcpiPath: process.env.NSP_API_NON_OCPI_PREFIX || "/api/v1",
 
     // Base URL for API requests - change this to match your backend
     serviceUrl: process.env.BASE_URL

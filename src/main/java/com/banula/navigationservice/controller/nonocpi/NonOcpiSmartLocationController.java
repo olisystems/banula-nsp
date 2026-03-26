@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
@@ -22,7 +24,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
-@RequestMapping("${party.api-non-ocpi-prefix}/locations")
+@RequestMapping("/api/v1/internal/locations")
 // @Tag(name="CpoNonOcpiLocation")
 @Slf4j
 @AllArgsConstructor
@@ -48,7 +50,7 @@ public class NonOcpiSmartLocationController {
                 countryCode, party_id)));
     }
 
-    @GetMapping("/{maloId}")
+    @GetMapping("/by-malo/{maloId}")
     @LogRequest
     @CrossOrigin
     public ResponseEntity<OcpiResponse<SmartLocationDTO>> getLocationsByMaloId(
@@ -67,19 +69,22 @@ public class NonOcpiSmartLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(smartLocation));
     }
 
-    @PostMapping("/{countryCode}/{partyId}/{id}")
+    @PostMapping("/{countryCode}/{partyId}/{locationId}")
     @LogRequest
     @CrossOrigin
     public ResponseEntity<OcpiResponse<SmartLocationDTO>> saveSmartLocation(
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
-            @PathVariable(value = "id") String id,
-            @RequestBody SmartLocationDTO smartLocationDTO) {
-        SmartLocationDTO updatedLocation = nspSmartLocationService.saveSmartLocation(id, countryCode, party_id,
+            @PathVariable(value = "locationId") String locationId,
+            @RequestBody SmartLocationDTO smartLocationDTO,
+            HttpServletRequest request) {
+        SmartLocationDTO updatedLocation = nspSmartLocationService.saveSmartLocation(locationId, countryCode, party_id,
                 smartLocationDTO);
 
         if (updatedLocation == null) {
-            return ResponseEntity.notFound().build();
+            String locationKey = countryCode + "*" + party_id + "*" + locationId;
+            return ResponseEntity.status(404).body(
+                    new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
         }
 
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));

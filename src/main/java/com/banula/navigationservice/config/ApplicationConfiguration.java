@@ -18,26 +18,23 @@ import com.banula.openlib.ocpi.platform.PlatformConfiguration;
 @Setter
 public class ApplicationConfiguration implements PlatformConfiguration {
 
-    @Value("${party.url}")
+    @Value("${api.url}")
     private String partyUrl;
 
-    @Value("${party.role}")
+    @Value("${api.role}")
     private Role role;
 
-    @Value("${party.api-prefix}")
-    private String apiPrefix;
-
-    @Value("${party.api-non-ocpi-prefix}")
-    private String apiNonOcpiPrefix;
-
-    @Value("${party.command-timeout}")
+    @Value("${api.command-timeout}")
     private Integer commandTimeout;
 
-    @Value("${party.zone-id}")
+    @Value("${api.zone-id}")
     private String zoneId;
 
-    @Value("${party.collection-prefix}")
+    @Value("${api.collection-prefix}")
     private String collectionPrefix;
+
+    @Value("${api.log-curl-command}")
+    private boolean logCurlCommand;
 
     @Value("${platform.url}")
     private String platformUrl;
@@ -59,6 +56,10 @@ public class ApplicationConfiguration implements PlatformConfiguration {
             this.ocnVersionDetails = new HashMap<String, OcnVersionDetails>();
         }
         this.ocnVersionDetails.put(tenantId, _ocnVersionDetails);
+    }
+
+    public boolean isToLogCurlCommands() {
+        return logCurlCommand;
     }
 
 }
