@@ -47,8 +47,7 @@ mvnw*
 
 
 # Local scripts
-start.sh
-stop.sh
+
 
 #Mac specific files
 **/.DS_Store
