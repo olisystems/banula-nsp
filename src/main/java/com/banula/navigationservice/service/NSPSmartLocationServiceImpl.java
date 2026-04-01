@@ -53,10 +53,12 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
             SmartLocation incompleteEntity = SmartLocationMapper.toSmartLocationEntity(smartLocationDTO);
 
-            SmartLocation existingEntity = smartLocationRepository
+            MongoSmartLocation existingMongoSmartLocation = smartLocationRepository
                     .findByIdAndCountryCodeAndPartyId(id, countryCode, partyId)
                     .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
 
+            SmartLocation existingEntity = SmartLocationMapper.toSmartLocationEntity(
+                    SmartLocationMapper.toSmartLocationDTO(existingMongoSmartLocation));
             // Patch the existing location with the new data
             ModelPatcherUtil.smartLocationPatcher(existingEntity,
                     incompleteEntity);
