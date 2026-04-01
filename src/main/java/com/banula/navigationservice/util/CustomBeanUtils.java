@@ -10,14 +10,18 @@ public class CustomBeanUtils {
         BeanUtils.copyProperties(origin, destination);
 
         if (destination instanceof HasCompositeMongoId) {
-            if (((HasCompositeMongoId) destination).getCountryCode() != null &&
-                    ((HasCompositeMongoId) destination).getPartyId() != null &&
-                    ((HasCompositeMongoId) destination).getId() != null) {
-                String mongoid = String.format("%s*%s*%s",
-                        ((HasCompositeMongoId) destination).getCountryCode(),
-                        ((HasCompositeMongoId) destination).getPartyId(),
-                        ((HasCompositeMongoId) destination).getId());
-                ((HasCompositeMongoId) destination).setMongoId(mongoid);
+            HasCompositeMongoId target = (HasCompositeMongoId) destination;
+            if (target.getCountryCode() != null &&
+                    target.getPartyId() != null &&
+                    target.getId() != null) {
+                String existingMongoId = target.getMongoId();
+                if (existingMongoId == null || existingMongoId.isBlank()) {
+                    String mongoid = String.format("%s*%s*%s",
+                            target.getCountryCode(),
+                            target.getPartyId(),
+                            target.getId());
+                    target.setMongoId(mongoid);
+                }
             }
         }
 
