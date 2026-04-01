@@ -68,8 +68,10 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             log.info("Patched location with ID: {}", smartLocationDTOResponse.getId());
             return smartLocationDTOResponse;
 
+        } catch (OCPICustomException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Unexpected error while patching smart location", e);
         }
     }
 
