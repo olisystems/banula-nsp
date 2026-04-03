@@ -36,7 +36,8 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     @Override
     public SmartLocationDTO getLocation(String countryCode, String partyId, String locationId) {
-        MongoSmartLocation smartLocation = smartLocationRepository.findByCompositeKey(countryCode, partyId, locationId)
+        MongoSmartLocation smartLocation = smartLocationRepository
+                .findByCountryCodeAndPartyIdAndId(countryCode, partyId, locationId)
                 .orElse(null);
         return SmartLocationMapper.toSmartLocationDTO(smartLocation);
     }
@@ -54,15 +55,24 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             SmartLocation incompleteEntity = SmartLocationMapper.toSmartLocationEntity(smartLocationDTO);
 
             MongoSmartLocation existingMongoSmartLocation = smartLocationRepository
-                    .findByIdAndCountryCodeAndPartyId(id, countryCode, partyId)
+                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
                     .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
 
             SmartLocation existingEntity = SmartLocationMapper.toSmartLocationEntity(
                     SmartLocationMapper.toSmartLocationDTO(existingMongoSmartLocation));
+
+            // Explicitly handle the publish field if present in the DTO
+            if (smartLocationDTO.getPublish() != null) {
+                incompleteEntity.setPublish(smartLocationDTO.getPublish());
+            }
+
             // Patch the existing location with the new data
             ModelPatcherUtil.smartLocationPatcher(existingEntity,
                     incompleteEntity);
             MongoSmartLocation mongoSmartLocation = SmartLocationMapper.toMongoSmartLocation(existingEntity);
+            // Preserve the mongoId from the existing entity to ensure UPDATE instead of
+            // INSERT
+            mongoSmartLocation.setMongoId(existingMongoSmartLocation.getMongoId());
             smartLocationRepository.save(mongoSmartLocation);
             SmartLocationDTO smartLocationDTOResponse = SmartLocationMapper.toSmartLocationDTO(existingEntity);
             log.info("Patched location with ID: {}", smartLocationDTOResponse.getId());

@@ -3,20 +3,28 @@ package com.banula.navigationservice.controller;
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
+import com.banula.openlib.ocpi.annotation.PlatformRequest;
 import com.banula.openlib.ocpi.annotation.ValidateConnector;
 import com.banula.openlib.ocpi.annotation.ValidateEVSE;
 import com.banula.openlib.ocpi.annotation.ValidateLocation;
 import com.banula.openlib.ocpi.model.OcpiResponse;
+import com.banula.openlib.ocpi.model.PlatformRequestValues;
 import com.banula.openlib.ocpi.model.dto.LocationDTO;
 import com.banula.openlib.ocpi.model.vo.Connector;
 import com.banula.openlib.ocpi.model.vo.EVSE;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,8 +34,34 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class NSPLocationController {
 
-    protected final NSPLocationService emspLocationService;
+    protected final NSPLocationService locationService;
     protected final ApplicationConfiguration applicationConfiguration;
+
+    // sender OCPI Location interface endpoints
+    /**
+     * Fetch a list of Locations, last updated between the {date_from} and {date_to}
+     * (paginated)
+     * 
+     * @param dateFrom Only return Locations that have last_updated after or equal
+     *                 to this Date/Time (inclusive).
+     * @param dateTo   Only return Locations that have last_updated before or equal
+     *                 to this Date/Time (inclusive).
+     * @param offset   The offset of the first object returned. Default is 0.
+     * @param limit    Maximum number of objects to GET.
+     * @return List of all Locations with valid EVSEs.
+     */
+    @GetMapping
+    // used only for ocpi complient endpoints, this is the only one here, other
+    // methods should use AuthorizeTokenB
+    @LogRequest
+    public ResponseEntity<OcpiResponse<List<LocationDTO>>> getLocations(
+            @RequestParam(value = "date_from", required = false) LocalDateTime dateFrom,
+            @RequestParam(value = "date_to", required = false) LocalDateTime dateTo,
+            @RequestParam(required = false, defaultValue = "0") Integer offset,
+            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+        return ResponseEntity.ok(new OcpiResponse<>(
+                locationService.findLocations(dateFrom, dateTo, offset, limit)));
+    }
 
     /**
      * Retrieve a Location as it is stored in the eMSP system.
@@ -55,7 +89,7 @@ public class NSPLocationController {
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid", required = false) String evseUid,
             @PathVariable(value = "connectorId", required = false) String connectorId) {
-        return ResponseEntity.ok(new OcpiResponse<>(emspLocationService.getLocationConnector(
+        return ResponseEntity.ok(new OcpiResponse<>(locationService.getLocationEvseConnector(
                 countryCode, party_id, locationId, evseUid, connectorId)));
     }
 
@@ -79,7 +113,7 @@ public class NSPLocationController {
             @PathVariable(value = "partyId") String partyId,
             @PathVariable(value = "locationId") String locationId) {
         locationDTO.setPublish(false);
-        emspLocationService.putLocation(locationDTO, countryCode, partyId, locationId);
+        locationService.putLocation(locationDTO, countryCode, partyId, locationId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -93,7 +127,7 @@ public class NSPLocationController {
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid", required = false) String evseUid) {
         // push the updated locationDTO to the database
-        emspLocationService.putEvse(evseVO, countryCode, party_id, locationId, evseUid);
+        locationService.putEvse(evseVO, countryCode, party_id, locationId, evseUid);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -108,7 +142,7 @@ public class NSPLocationController {
             @PathVariable(value = "evseUid") String evseUid,
             @PathVariable(value = "connectorId") String connectorId) {
         // push the updated locationDTO to the database
-        emspLocationService.putConnector(connectorVO, countryCode, party_id, locationId, evseUid, connectorId);
+        locationService.putConnector(connectorVO, countryCode, party_id, locationId, evseUid, connectorId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -127,7 +161,7 @@ public class NSPLocationController {
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId) {
-        emspLocationService.patchLocation(locationDTO, countryCode, party_id, locationId);
+        locationService.patchLocation(locationDTO, countryCode, party_id, locationId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -140,7 +174,7 @@ public class NSPLocationController {
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid") String evseUid) {
-        emspLocationService.patchEvse(evse, countryCode, party_id, locationId, evseUid);
+        locationService.patchEvse(evse, countryCode, party_id, locationId, evseUid);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -153,7 +187,7 @@ public class NSPLocationController {
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid") String evseUid,
             @PathVariable(value = "connectorId") String connectorId) {
-        emspLocationService.patchConnector(connectorVO, countryCode, party_id, locationId, evseUid, connectorId);
+        locationService.patchConnector(connectorVO, countryCode, party_id, locationId, evseUid, connectorId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
