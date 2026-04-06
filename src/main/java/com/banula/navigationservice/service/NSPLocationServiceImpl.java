@@ -32,12 +32,48 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     private final LocationUtility locationUtility;
     private final MongoCollectionMapper mongoCollectionMapper;
 
+    // returns either LocationDTO or EVSE or Connector object
     @Override
-    public Object getLocationEvseConnector(String countryCode, String party_id, String locationId, String evseUid,
+    public Object getLocationEvseConnector(String countryCode, String partyId, String locationId, String evseUid,
             String connectorId) {
         try {
-            return locationUtility.findLocations(countryCode, party_id, locationId, evseUid, connectorId,
-                    mongoCollectionMapper.getSmartLocationCollectionName());
+            Optional<MongoSmartLocation> locationOpt = smartLocationRepository
+                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, locationId);
+            if (locationOpt.isEmpty()) {
+                throw new OCPICustomException("Location not found");
+            }
+
+            MongoSmartLocation mongoSmartLocation = locationOpt.get();
+            Location location = mongoSmartLocation.mapToLocationOnly();
+
+            // Case 1: No evseUid and no connectorId -> return LocationDTO
+            if (evseUid == null && connectorId == null) {
+                return LocationMapper.toLocationDTO(location);
+            }
+
+            // Case 2: evseUid is not null -> find EVSE
+            EVSE evse = LocationUtility.findEvseInLocationByEvseUid(evseUid, location);
+            if (evse == null) {
+                throw new OCPICustomException("EVSE not found with uid: " + evseUid,
+                        Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+            }
+
+            // If connectorId is null, return the EVSE
+            if (connectorId == null) {
+                return evse;
+            }
+
+            // Case 3: Both evseUid and connectorId are not null -> find Connector
+            Connector connector = LocationUtility.findConnectorInEvseByConnectorId(connectorId, evse);
+            if (connector == null) {
+                throw new OCPICustomException("Connector not found with id: " + connectorId,
+                        Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+            }
+
+            return connector;
+
+        } catch (OCPICustomException e) {
+            throw e;
         } catch (Exception e) {
             String errorMessage = "Error happened while fetching location, error message: " + e.getLocalizedMessage();
             log.info(errorMessage);
@@ -88,7 +124,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             }
 
             Location existingLocation = optionalMongoSmartLocation.get();
-            EVSE existingEvseToUpdate = LocationUtility.getEvseInLocation(existingLocation, evseUid);
+            EVSE existingEvseToUpdate = LocationUtility.findEvseInLocationByEvseUid(evseUid, existingLocation);
             ModelPatcherUtil.evsePatcher(existingEvseToUpdate, incompleteEvse);
 
             // substitute old EVSE with new EVSE and save location
@@ -120,14 +156,14 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         if (evse == null) {
             throw new OCPICustomException("EVSE not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
-        int evseCurrentIndex = LocationUtility.indexOf(locationDTO.getEvses(), evse);
+        int evseCurrentIndex = LocationUtility.evseIndexOf(locationDTO.getEvses(), evse);
 
         // verify if the connector is already registered and replace object, otherwise
         // add it
         if (evse.getConnectors() == null) {
             evse.setConnectors(new ArrayList<>());
         }
-        int currentConnectorIndex = LocationUtility.indexOf(evse.getConnectors(), connectorVO);
+        int currentConnectorIndex = LocationUtility.connectorIndexOf(evse.getConnectors(), connectorVO);
         if (currentConnectorIndex != -1) {
             evse.getConnectors().set(currentConnectorIndex, connectorVO);
         } else {
@@ -163,8 +199,9 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             }
 
             MongoSmartLocation mongoSmartLocation = optionalMongoSmartLocation.get();
-            EVSE existingEvse = LocationUtility.getEvseInLocation(mongoSmartLocation, evseUid);
-            Connector existingConnectorToUpdate = LocationUtility.getConnectorInEvse(existingEvse, connectorId);
+            EVSE existingEvse = LocationUtility.findEvseInLocationByEvseUid(evseUid, mongoSmartLocation);
+            Connector existingConnectorToUpdate = LocationUtility.findConnectorInEvseByConnectorId(connectorId,
+                    existingEvse);
 
             ModelPatcherUtil.connectorPatcher(existingConnectorToUpdate, incompleteConnector);
 
