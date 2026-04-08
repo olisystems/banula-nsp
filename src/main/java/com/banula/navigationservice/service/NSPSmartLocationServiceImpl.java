@@ -39,8 +39,15 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     @Override
     public SmartLocationDTO getLocation(String countryCode, String partyId, String locationId) {
+        // Using the generic findByCompoundIndex method instead of specific finder
+        MongoSmartLocation searchEntity = MongoSmartLocation.builder()
+                .countryCode(countryCode)
+                .partyId(partyId)
+                .id(locationId)
+                .build();
+
         MongoSmartLocation smartLocation = smartLocationRepository
-                .findByCountryCodeAndPartyIdAndId(countryCode, partyId, locationId)
+                .findByCompoundIndex(searchEntity)
                 .orElse(null);
         return genericMongoMapper.mongoToDTO(smartLocation, SmartLocation.class, SmartLocationDTO.class);
     }

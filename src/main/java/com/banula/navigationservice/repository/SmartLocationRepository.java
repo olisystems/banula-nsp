@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SmartLocationRepository
-    extends MongoRepository<MongoSmartLocation, String> {
+    extends MongoRepository<MongoSmartLocation, String>, CompoundIndexRepository<MongoSmartLocation> {
   List<MongoSmartLocation> findByCountryCodeAndPartyId(String countryCode, String party_id);
 
   Optional<MongoSmartLocation> findByMarketLocationId(String maloId);
