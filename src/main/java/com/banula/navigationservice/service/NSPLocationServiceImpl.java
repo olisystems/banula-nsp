@@ -11,6 +11,7 @@ import com.banula.openlib.ocpi.model.vo.Connector;
 import com.banula.openlib.ocpi.model.vo.EVSE;
 import com.banula.openlib.ocpi.util.Constants;
 import com.banula.openlib.ocpi.util.ModelPatcherUtil;
+import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.navigationservice.config.MongoCollectionMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     private final SmartLocationRepository smartLocationRepository;
     private final LocationUtility locationUtility;
     private final MongoCollectionMapper mongoCollectionMapper;
-    private final com.banula.navigationservice.util.GenericMongoMapper genericMongoMapper;
+    private final GenericMongoMapper genericMongoMapper;
 
     // returns either LocationDTO or EVSE or Connector object
     @Override
@@ -39,7 +40,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             String connectorId) {
         try {
             Optional<MongoSmartLocation> locationOpt = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, locationId);
+                    .findByCompoundIndex(countryCode, partyId, locationId);
             if (locationOpt.isEmpty()) {
                 throw new OCPICustomException("Location not found");
             }
@@ -114,7 +115,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         try {
 
             Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(
+                    .findByCompoundIndex(
                             countryCode, party_id, locationId);
 
             if (optionalMongoSmartLocation.isEmpty()) {
@@ -187,7 +188,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         try {
             // verify if location EVSE and Connector exists
             Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(
+                    .findByCompoundIndex(
                             countryCode, party_id, locationId);
 
             if (optionalMongoSmartLocation.isEmpty()) {
@@ -230,7 +231,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void putLocation(LocationDTO locationDTO, String countryCode, String partyId, String ocpiId) {
         try {
             MongoSmartLocation mongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, ocpiId)
+                    .findByCompoundIndex(countryCode, partyId, ocpiId)
                     .orElse(null);
             Location location = LocationMapper.toLocationEntity(locationDTO);
             // Convert Location to MongoSmartLocation with smart upsert
@@ -250,7 +251,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         try {
             Location incompleteLocation = LocationMapper.toLocationEntity(locationDTO);
             MongoSmartLocation mongoExistingLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
+                    .findByCompoundIndex(countryCode, partyId, id)
                     .orElseThrow(RuntimeException::new);
             ModelPatcherUtil.locationPatcher(mongoExistingLocation, incompleteLocation);
             // Convert to MongoEntity with updated timestamp

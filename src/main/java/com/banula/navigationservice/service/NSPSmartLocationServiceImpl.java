@@ -1,6 +1,6 @@
 package com.banula.navigationservice.service;
 
-import com.banula.navigationservice.util.GenericMongoMapper;
+import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.navigationservice.model.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
@@ -39,15 +39,9 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     @Override
     public SmartLocationDTO getLocation(String countryCode, String partyId, String locationId) {
-        // Using the generic findByCompoundIndex method instead of specific finder
-        MongoSmartLocation searchEntity = MongoSmartLocation.builder()
-                .countryCode(countryCode)
-                .partyId(partyId)
-                .id(locationId)
-                .build();
-
+        // Using the generic OcpiCommonCompoundIndex method
         MongoSmartLocation smartLocation = smartLocationRepository
-                .findByCompoundIndex(searchEntity)
+                .findByCompoundIndex(countryCode, partyId, locationId)
                 .orElse(null);
         return genericMongoMapper.mongoToDTO(smartLocation, SmartLocation.class, SmartLocationDTO.class);
     }
@@ -65,7 +59,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             SmartLocation incompleteEntity = genericMongoMapper.fromDTO(smartLocationDTO, SmartLocation.class);
 
             MongoSmartLocation existingMongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
+                    .findByCompoundIndex(countryCode, partyId, id)
                     .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
 
             // MongoSmartLocation extends SmartLocation, so we can cast directly

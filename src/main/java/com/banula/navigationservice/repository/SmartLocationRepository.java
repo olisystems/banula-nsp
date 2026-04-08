@@ -1,6 +1,7 @@
 package com.banula.navigationservice.repository;
 
 import com.banula.navigationservice.model.MongoSmartLocation;
+import com.banula.openlib.mongodb.repository.OcpiCommonCompoundIndex;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -11,12 +12,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SmartLocationRepository
-    extends MongoRepository<MongoSmartLocation, String>, CompoundIndexRepository<MongoSmartLocation> {
+    extends MongoRepository<MongoSmartLocation, String>, OcpiCommonCompoundIndex<MongoSmartLocation> {
   List<MongoSmartLocation> findByCountryCodeAndPartyId(String countryCode, String party_id);
 
   Optional<MongoSmartLocation> findByMarketLocationId(String maloId);
-
-  Optional<MongoSmartLocation> findByCountryCodeAndPartyIdAndId(String id, String countryCode, String partyId);
 
   /**
    * Find published smart locations with optional date range filtering and
