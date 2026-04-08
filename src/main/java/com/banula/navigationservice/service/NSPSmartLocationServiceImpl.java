@@ -3,12 +3,10 @@ package com.banula.navigationservice.service;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.navigationservice.model.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
-import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
-import com.banula.openlib.ocpi.custom.smartlocations.validations.SmartLocationCreateGroup;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
-import com.banula.openlib.ocpi.model.dto.LocationDTO;
 import com.banula.openlib.ocpi.util.Constants;
 import com.banula.openlib.ocpi.util.ModelPatcherUtil;
 
@@ -16,7 +14,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
-import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -65,14 +62,30 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             // MongoSmartLocation extends SmartLocation, so we can cast directly
             SmartLocation existingEntity = existingMongoSmartLocation;
 
-            // Explicitly handle the publish field if present in the DTO
-            if (smartLocationDTO.getPublish() != null) {
-                incompleteEntity.setPublish(smartLocationDTO.getPublish());
+            // Handle smartLocationState from DTO
+            if (smartLocationDTO.getSmartLocationState() != null) {
+                existingEntity.setSmartLocationState(smartLocationDTO.getSmartLocationState());
+            }
+
+            // Set publish = true when state is set to VERIFIED
+            if (existingEntity.getSmartLocationState() == SmartLocationState.VERIFIED) {
+                existingEntity.setPublish(true);
+            } else {
+                existingEntity.setPublish(false);
             }
 
             // Patch the existing location with the new data
             ModelPatcherUtil.smartLocationPatcher(existingEntity,
                     incompleteEntity);
+
+            // Automatically set state to ENRICHED if it's currently PLAIN_OCPI and all
+            // required smart fields are present
+            if ((existingEntity.getSmartLocationState() == null
+                    || existingEntity.getSmartLocationState() == SmartLocationState.PLAIN_OCPI) &&
+                    isEnriched(existingEntity)) {
+                existingEntity.setSmartLocationState(SmartLocationState.ENRICHED);
+            }
+
             // Convert to MongoSmartLocation with smart upsert (will find and preserve
             // existing _id)
             MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(existingEntity,
@@ -116,6 +129,16 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         if (locationDTO.getPartyId() == null) {
             locationDTO.setPartyId(partyId);
         }
+    }
+
+    private boolean isEnriched(SmartLocation location) {
+        return location.getMarketLocationId() != null && !location.getMarketLocationId().isEmpty() &&
+                location.getMeteringLocationId() != null && !location.getMeteringLocationId().isEmpty() &&
+                location.getDsoMarketPartnerId() != null && !location.getDsoMarketPartnerId().isEmpty() &&
+                location.getTsoMarketPartnerId() != null && !location.getTsoMarketPartnerId().isEmpty() &&
+                location.getMpoMarketPartnerId() != null && !location.getMpoMarketPartnerId().isEmpty() &&
+                location.getMeteringDataSource() != null &&
+                location.getDefaultSupplier() != null;
     }
 
     @Override

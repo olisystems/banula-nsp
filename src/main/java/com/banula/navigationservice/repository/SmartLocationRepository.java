@@ -18,9 +18,9 @@ public interface SmartLocationRepository
   Optional<MongoSmartLocation> findByMarketLocationId(String maloId);
 
   /**
-   * Find published smart locations with optional date range filtering and
+   * Find verified smart locations with optional date range filtering and
    * pagination.
-   * Behaves like LocationUtility.findLocations but filters for published
+   * Behaves like LocationUtility.findLocations but filters for verified
    * locations only.
    * 
    * @param dateFrom Only return locations with lastUpdated >= dateFrom (if not
@@ -28,13 +28,13 @@ public interface SmartLocationRepository
    * @param dateTo   Only return locations with lastUpdated <= dateTo (if not
    *                 null)
    * @param pageable Pagination parameters (offset and limit)
-   * @return Page of published MongoSmartLocation entities
+   * @return Page of verified MongoSmartLocation entities
    */
-  @Query("{ 'publish': true" +
+  @Query("{ 'smartLocationState': 'VERIFIED'" +
       ", $and: [" +
       "  { $or: [ { 'lastUpdated': { $gte: ?0 } }, { $expr: { $eq: [?0, null] } } ] }" +
       ", { $or: [ { 'lastUpdated': { $lte: ?1 } }, { $expr: { $eq: [?1, null] } } ] }" +
       "] }")
-  Page<MongoSmartLocation> findPublishedSmartLocations(LocalDateTime dateFrom, LocalDateTime dateTo, Pageable pageable);
+  Page<MongoSmartLocation> findVerifiedSmartLocations(LocalDateTime dateFrom, LocalDateTime dateTo, Pageable pageable);
 
 }

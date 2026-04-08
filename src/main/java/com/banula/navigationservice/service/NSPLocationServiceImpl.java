@@ -1,5 +1,6 @@
 package com.banula.navigationservice.service;
 
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.navigationservice.model.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.navigationservice.util.LocationUtility;
@@ -236,6 +237,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             Location location = LocationMapper.toLocationEntity(locationDTO);
             // Convert Location to MongoSmartLocation with smart upsert
             mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
+            mongoSmartLocation.setSmartLocationState(SmartLocationState.PLAIN_OCPI);
+            mongoSmartLocation.setPublish(false);
             smartLocationRepository.save(mongoSmartLocation);
             log.info("Location saved in database! | uid: {} | collection: {}", locationDTO.getId(),
                     mongoCollectionMapper.getSmartLocationCollectionName());
@@ -272,7 +275,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             int safeLimit = limit == null ? 100 : limit;
             int page = safeOffset / safeLimit;
             Pageable pageable = PageRequest.of(page, safeLimit);
-            return smartLocationRepository.findPublishedSmartLocations(dateFrom, dateTo, pageable)
+            return smartLocationRepository.findVerifiedSmartLocations(dateFrom, dateTo, pageable)
                     .getContent()
                     .stream()
                     .map(mongoLoc -> (Location) mongoLoc) // MongoSmartLocation extends Location
