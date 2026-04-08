@@ -1,6 +1,7 @@
 package com.banula.navigationservice.controller.nonocpi;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -45,6 +46,13 @@ public class NonOcpiSmartLocationController {
     @CrossOrigin
     public ResponseEntity<OcpiResponse<List<SmartLocationDTO>>> getAllLocations() {
         return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.getAllLocations()));
+    }
+
+    @GetMapping("/party-set")
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<Set<String>>> getPartySet() {
+        return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.getPartySet()));
     }
 
     @GetMapping("/{countryCode}/{partyId}")

@@ -20,6 +20,8 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -124,6 +126,15 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     public List<SmartLocationDTO> getAllLocations() {
         List<MongoSmartLocation> locations = smartLocationRepository.findAll();
         return SmartLocationMapper.toListSmartLocationDTOFromMongoList(locations);
+    }
+
+    @Override
+    public Set<String> getPartySet() {
+        List<MongoSmartLocation> locations = smartLocationRepository.findAll();
+        return locations.stream()
+                .filter(location -> location.getCountryCode() != null && location.getPartyId() != null)
+                .map(location -> location.getCountryCode() + "/" + location.getPartyId())
+                .collect(Collectors.toSet());
     }
 
 }
