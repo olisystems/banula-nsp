@@ -1,6 +1,6 @@
 package com.banula.navigationservice.service;
 
-import com.banula.navigationservice.mapper.SmartLocationMapper;
+import com.banula.navigationservice.util.GenericMongoMapper;
 import com.banula.navigationservice.model.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
@@ -29,11 +29,12 @@ import java.util.stream.Collectors;
 public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     private final SmartLocationRepository smartLocationRepository;
+    private final GenericMongoMapper genericMongoMapper;
 
     @Override
     public List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId) {
         List<MongoSmartLocation> locations = smartLocationRepository.findByCountryCodeAndPartyId(countryCode, partyId);
-        return SmartLocationMapper.toListSmartLocationDTOFromMongoList(locations);
+        return genericMongoMapper.mongoListToDTO(locations, SmartLocation.class, SmartLocationDTO.class);
     }
 
     @Override
@@ -41,7 +42,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         MongoSmartLocation smartLocation = smartLocationRepository
                 .findByCountryCodeAndPartyIdAndId(countryCode, partyId, locationId)
                 .orElse(null);
-        return SmartLocationMapper.toSmartLocationDTO(smartLocation);
+        return genericMongoMapper.mongoToDTO(smartLocation, SmartLocation.class, SmartLocationDTO.class);
     }
 
     @Override
@@ -54,14 +55,14 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             // update Last Updated field
             smartLocationDTO.setLastUpdated(LocalDateTime.now());
 
-            SmartLocation incompleteEntity = SmartLocationMapper.toSmartLocationEntity(smartLocationDTO);
+            SmartLocation incompleteEntity = genericMongoMapper.fromDTO(smartLocationDTO, SmartLocation.class);
 
             MongoSmartLocation existingMongoSmartLocation = smartLocationRepository
                     .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
                     .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
 
-            SmartLocation existingEntity = SmartLocationMapper.toSmartLocationEntity(
-                    SmartLocationMapper.toSmartLocationDTO(existingMongoSmartLocation));
+            // MongoSmartLocation extends SmartLocation, so we can cast directly
+            SmartLocation existingEntity = existingMongoSmartLocation;
 
             // Explicitly handle the publish field if present in the DTO
             if (smartLocationDTO.getPublish() != null) {
@@ -71,12 +72,13 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             // Patch the existing location with the new data
             ModelPatcherUtil.smartLocationPatcher(existingEntity,
                     incompleteEntity);
-            MongoSmartLocation mongoSmartLocation = SmartLocationMapper.toMongoSmartLocation(existingEntity);
-            // Preserve the mongoId from the existing entity to ensure UPDATE instead of
-            // INSERT
-            mongoSmartLocation.setMongoId(existingMongoSmartLocation.getMongoId());
+            // Convert to MongoSmartLocation with smart upsert (will find and preserve
+            // existing _id)
+            MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(existingEntity,
+                    MongoSmartLocation.class);
             smartLocationRepository.save(mongoSmartLocation);
-            SmartLocationDTO smartLocationDTOResponse = SmartLocationMapper.toSmartLocationDTO(existingEntity);
+            SmartLocationDTO smartLocationDTOResponse = genericMongoMapper.toDTO(existingEntity,
+                    SmartLocationDTO.class);
             log.info("Patched location with ID: {}", smartLocationDTOResponse.getId());
             return smartLocationDTOResponse;
 
@@ -119,13 +121,13 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     public SmartLocationDTO getLocationByMaloId(String maloId) {
         MongoSmartLocation smartLocation = smartLocationRepository.findByMarketLocationId(maloId)
                 .orElse(null);
-        return SmartLocationMapper.toSmartLocationDTO(smartLocation);
+        return genericMongoMapper.mongoToDTO(smartLocation, SmartLocation.class, SmartLocationDTO.class);
     }
 
     @Override
     public List<SmartLocationDTO> getAllLocations() {
         List<MongoSmartLocation> locations = smartLocationRepository.findAll();
-        return SmartLocationMapper.toListSmartLocationDTOFromMongoList(locations);
+        return genericMongoMapper.mongoListToDTO(locations, SmartLocation.class, SmartLocationDTO.class);
     }
 
     @Override

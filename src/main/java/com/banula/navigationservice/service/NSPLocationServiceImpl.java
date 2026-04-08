@@ -31,6 +31,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     private final SmartLocationRepository smartLocationRepository;
     private final LocationUtility locationUtility;
     private final MongoCollectionMapper mongoCollectionMapper;
+    private final com.banula.navigationservice.util.GenericMongoMapper genericMongoMapper;
 
     // returns either LocationDTO or EVSE or Connector object
     @Override
@@ -44,7 +45,9 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             }
 
             MongoSmartLocation mongoSmartLocation = locationOpt.get();
-            Location location = mongoSmartLocation.mapToLocationOnly();
+            // MongoSmartLocation extends SmartLocation extends Location, so we can cast
+            // directly
+            Location location = mongoSmartLocation;
 
             // Case 1: No evseUid and no connectorId -> return LocationDTO
             if (evseUid == null && connectorId == null) {
@@ -132,7 +135,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             existingLocation.getEvses().add(existingEvseToUpdate);
 
             MongoSmartLocation mongoSmartLocation = optionalMongoSmartLocation.get();
-            mongoSmartLocation.updateLocation(existingLocation);
+            // Copy properties from existingLocation to mongoSmartLocation and convert
+            mongoSmartLocation = genericMongoMapper.toMongo(existingLocation, MongoSmartLocation.class);
 
             smartLocationRepository.save(mongoSmartLocation);
         } catch (Exception e) {
@@ -211,7 +215,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
 
             mongoSmartLocation.getEvses().removeIf(evse -> evse.getUid().equals(evseUid));
             mongoSmartLocation.getEvses().add(existingEvse);
-            mongoSmartLocation.updateLocation(mongoSmartLocation);
+            // Convert to MongoEntity with updated timestamp
+            mongoSmartLocation = genericMongoMapper.toMongo(mongoSmartLocation, MongoSmartLocation.class);
 
             smartLocationRepository.save(mongoSmartLocation);
         } catch (Exception e) {
@@ -228,10 +233,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
                     .findByCountryCodeAndPartyIdAndId(countryCode, partyId, ocpiId)
                     .orElse(null);
             Location location = LocationMapper.toLocationEntity(locationDTO);
-            if (mongoSmartLocation == null) {
-                mongoSmartLocation = new MongoSmartLocation();
-            }
-            mongoSmartLocation.updateLocation(location);
+            // Convert Location to MongoSmartLocation with smart upsert
+            mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
             smartLocationRepository.save(mongoSmartLocation);
             log.info("Location saved in database! | uid: {} | collection: {}", locationDTO.getId(),
                     mongoCollectionMapper.getSmartLocationCollectionName());
@@ -250,7 +253,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
                     .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
                     .orElseThrow(RuntimeException::new);
             ModelPatcherUtil.locationPatcher(mongoExistingLocation, incompleteLocation);
-            mongoExistingLocation.updateLocation(mongoExistingLocation);
+            // Convert to MongoEntity with updated timestamp
+            mongoExistingLocation = genericMongoMapper.toMongo(mongoExistingLocation, MongoSmartLocation.class);
             smartLocationRepository.save(mongoExistingLocation);
         } catch (Exception e) {
             String errorMessage = "Error happened while patching location: " + e.getLocalizedMessage();
@@ -270,7 +274,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             return smartLocationRepository.findPublishedSmartLocations(dateFrom, dateTo, pageable)
                     .getContent()
                     .stream()
-                    .map(MongoSmartLocation::mapToLocationOnly)
+                    .map(mongoLoc -> (Location) mongoLoc) // MongoSmartLocation extends Location
                     .map(LocationMapper::toLocationDTO)
                     .toList();
         } catch (Exception e) {
