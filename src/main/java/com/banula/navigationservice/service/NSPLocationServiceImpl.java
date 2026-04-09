@@ -3,7 +3,7 @@ package com.banula.navigationservice.service;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.navigationservice.model.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
-import com.banula.navigationservice.util.LocationUtility;
+import com.banula.openlib.ocpi.util.LocationUtility;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
 import com.banula.openlib.ocpi.mapper.LocationMapper;
 import com.banula.openlib.ocpi.model.Location;
@@ -31,7 +31,6 @@ import java.util.Optional;
 public class NSPLocationServiceImpl implements NSPLocationService {
 
     private final SmartLocationRepository smartLocationRepository;
-    private final LocationUtility locationUtility;
     private final MongoCollectionMapper mongoCollectionMapper;
     private final GenericMongoMapper genericMongoMapper;
 
