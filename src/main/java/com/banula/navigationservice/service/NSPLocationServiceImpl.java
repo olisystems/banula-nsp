@@ -1,8 +1,9 @@
 package com.banula.navigationservice.service;
 
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.navigationservice.model.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
-import com.banula.navigationservice.util.LocationUtility;
+import com.banula.openlib.ocpi.util.LocationUtility;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
 import com.banula.openlib.ocpi.mapper.LocationMapper;
 import com.banula.openlib.ocpi.model.Location;
@@ -11,6 +12,7 @@ import com.banula.openlib.ocpi.model.vo.Connector;
 import com.banula.openlib.ocpi.model.vo.EVSE;
 import com.banula.openlib.ocpi.util.Constants;
 import com.banula.openlib.ocpi.util.ModelPatcherUtil;
+import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.navigationservice.config.MongoCollectionMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,8 +31,8 @@ import java.util.Optional;
 public class NSPLocationServiceImpl implements NSPLocationService {
 
     private final SmartLocationRepository smartLocationRepository;
-    private final LocationUtility locationUtility;
     private final MongoCollectionMapper mongoCollectionMapper;
+    private final GenericMongoMapper genericMongoMapper;
 
     // returns either LocationDTO or EVSE or Connector object
     @Override
@@ -38,13 +40,15 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             String connectorId) {
         try {
             Optional<MongoSmartLocation> locationOpt = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, locationId);
+                    .findByCompoundIndex(countryCode, partyId, locationId);
             if (locationOpt.isEmpty()) {
                 throw new OCPICustomException("Location not found");
             }
 
             MongoSmartLocation mongoSmartLocation = locationOpt.get();
-            Location location = mongoSmartLocation.mapToLocationOnly();
+            // MongoSmartLocation extends SmartLocation extends Location, so we can cast
+            // directly
+            Location location = mongoSmartLocation;
 
             // Case 1: No evseUid and no connectorId -> return LocationDTO
             if (evseUid == null && connectorId == null) {
@@ -111,7 +115,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         try {
 
             Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(
+                    .findByCompoundIndex(
                             countryCode, party_id, locationId);
 
             if (optionalMongoSmartLocation.isEmpty()) {
@@ -132,7 +136,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             existingLocation.getEvses().add(existingEvseToUpdate);
 
             MongoSmartLocation mongoSmartLocation = optionalMongoSmartLocation.get();
-            mongoSmartLocation.updateLocation(existingLocation);
+            // Copy properties from existingLocation to mongoSmartLocation and convert
+            mongoSmartLocation = genericMongoMapper.toMongo(existingLocation, MongoSmartLocation.class);
 
             smartLocationRepository.save(mongoSmartLocation);
         } catch (Exception e) {
@@ -183,7 +188,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         try {
             // verify if location EVSE and Connector exists
             Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(
+                    .findByCompoundIndex(
                             countryCode, party_id, locationId);
 
             if (optionalMongoSmartLocation.isEmpty()) {
@@ -211,7 +216,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
 
             mongoSmartLocation.getEvses().removeIf(evse -> evse.getUid().equals(evseUid));
             mongoSmartLocation.getEvses().add(existingEvse);
-            mongoSmartLocation.updateLocation(mongoSmartLocation);
+            // Convert to MongoEntity with updated timestamp
+            mongoSmartLocation = genericMongoMapper.toMongo(mongoSmartLocation, MongoSmartLocation.class);
 
             smartLocationRepository.save(mongoSmartLocation);
         } catch (Exception e) {
@@ -225,13 +231,13 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void putLocation(LocationDTO locationDTO, String countryCode, String partyId, String ocpiId) {
         try {
             MongoSmartLocation mongoSmartLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, ocpiId)
+                    .findByCompoundIndex(countryCode, partyId, ocpiId)
                     .orElse(null);
             Location location = LocationMapper.toLocationEntity(locationDTO);
-            if (mongoSmartLocation == null) {
-                mongoSmartLocation = new MongoSmartLocation();
-            }
-            mongoSmartLocation.updateLocation(location);
+            // Convert Location to MongoSmartLocation with smart upsert
+            mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
+            mongoSmartLocation.setSmartLocationState(SmartLocationState.PLAIN_OCPI);
+            mongoSmartLocation.setPublish(false);
             smartLocationRepository.save(mongoSmartLocation);
             log.info("Location saved in database! | uid: {} | collection: {}", locationDTO.getId(),
                     mongoCollectionMapper.getSmartLocationCollectionName());
@@ -247,10 +253,11 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         try {
             Location incompleteLocation = LocationMapper.toLocationEntity(locationDTO);
             MongoSmartLocation mongoExistingLocation = smartLocationRepository
-                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
+                    .findByCompoundIndex(countryCode, partyId, id)
                     .orElseThrow(RuntimeException::new);
             ModelPatcherUtil.locationPatcher(mongoExistingLocation, incompleteLocation);
-            mongoExistingLocation.updateLocation(mongoExistingLocation);
+            // Convert to MongoEntity with updated timestamp
+            mongoExistingLocation = genericMongoMapper.toMongo(mongoExistingLocation, MongoSmartLocation.class);
             smartLocationRepository.save(mongoExistingLocation);
         } catch (Exception e) {
             String errorMessage = "Error happened while patching location: " + e.getLocalizedMessage();
@@ -267,10 +274,10 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             int safeLimit = limit == null ? 100 : limit;
             int page = safeOffset / safeLimit;
             Pageable pageable = PageRequest.of(page, safeLimit);
-            return smartLocationRepository.findPublishedSmartLocations(dateFrom, dateTo, pageable)
+            return smartLocationRepository.findVerifiedSmartLocations(dateFrom, dateTo, pageable)
                     .getContent()
                     .stream()
-                    .map(MongoSmartLocation::mapToLocationOnly)
+                    .map(mongoLoc -> (Location) mongoLoc) // MongoSmartLocation extends Location
                     .map(LocationMapper::toLocationDTO)
                     .toList();
         } catch (Exception e) {

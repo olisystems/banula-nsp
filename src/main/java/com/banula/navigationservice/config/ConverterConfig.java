@@ -10,6 +10,8 @@ import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
@@ -32,7 +34,10 @@ public class ConverterConfig implements WebMvcConfigurer {
     }
 
     /**
-     * Custom converter to convert String to LocalDateTime
+     * Custom converter to convert String to LocalDateTime.
+     * Per OCPI standard, all timestamps are treated as UTC:
+     * - "2026-04-09T12:00:00Z" -> 12:00 UTC
+     * - "2026-04-09T12:00:00" -> 12:00 UTC (assumes UTC if no timezone specified)
      */
     public static class StringToLocalDateTimeConverter implements Converter<String, LocalDateTime> {
         @Override
@@ -41,9 +46,19 @@ public class ConverterConfig implements WebMvcConfigurer {
                 return null;
             }
             try {
-                return LocalDateTime.parse(source, DATE_FORMATTER);
+                // Try parsing with timezone offset first (e.g., "Z" or "+00:00")
+                try {
+                    OffsetDateTime odt = OffsetDateTime.parse(source, DateTimeFormatter.ISO_DATE_TIME);
+                    // Convert to UTC zone to ensure consistency
+                    return odt.atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+                } catch (DateTimeParseException ignored) {
+                    // If no timezone, parse as LocalDateTime and treat as UTC
+                    return LocalDateTime.parse(source, DATE_FORMATTER);
+                }
             } catch (DateTimeParseException e) {
-                throw new IllegalArgumentException("Invalid date format. Expected ISO 8601 format (yyyy-MM-ddTHH:mm:ss): " + source);
+                throw new IllegalArgumentException(
+                        "Invalid date format. Expected ISO 8601 format (yyyy-MM-ddTHH:mm:ss or yyyy-MM-ddTHH:mm:ssZ): "
+                                + source);
             }
         }
     }
