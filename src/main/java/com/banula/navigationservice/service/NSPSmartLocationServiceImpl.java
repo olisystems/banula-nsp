@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,7 +52,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             validateAndPopulateLocationIdentifiers(smartLocationDTO, countryCode, partyId, id);
 
             // update Last Updated field
-            smartLocationDTO.setLastUpdated(LocalDateTime.now());
+            smartLocationDTO.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
 
             SmartLocation incompleteEntity = genericMongoMapper.fromDTO(smartLocationDTO, SmartLocation.class);
 

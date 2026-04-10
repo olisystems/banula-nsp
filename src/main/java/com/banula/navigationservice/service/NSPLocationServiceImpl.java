@@ -129,7 +129,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
 
             Location existingLocation = optionalMongoSmartLocation.get();
             EVSE existingEvseToUpdate = LocationUtility.findEvseInLocationByEvseUid(evseUid, existingLocation);
-            ModelPatcherUtil.evsePatcher(existingEvseToUpdate, incompleteEvse);
+            ModelPatcherUtil.evsePatcher(existingLocation, existingEvseToUpdate, incompleteEvse);
 
             // substitute old EVSE with new EVSE and save location
             existingLocation.getEvses().removeIf(evse -> evse.getUid().equals(evseUid));
@@ -208,7 +208,8 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             Connector existingConnectorToUpdate = LocationUtility.findConnectorInEvseByConnectorId(connectorId,
                     existingEvse);
 
-            ModelPatcherUtil.connectorPatcher(existingConnectorToUpdate, incompleteConnector);
+            ModelPatcherUtil.connectorPatcher(mongoSmartLocation, existingEvse, existingConnectorToUpdate,
+                    incompleteConnector);
 
             // substitute old Connector with new Connector and save location
             existingEvse.getConnectors().removeIf(connector -> connector.getId().equals(connectorId));
@@ -230,12 +231,18 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     @Override
     public void putLocation(LocationDTO locationDTO, String countryCode, String partyId, String ocpiId) {
         try {
-            MongoSmartLocation mongoSmartLocation = smartLocationRepository
-                    .findByCompoundIndex(countryCode, partyId, ocpiId)
-                    .orElse(null);
+            Optional<MongoSmartLocation> mongoSmartLocationOpt = smartLocationRepository
+                    .findByCompoundIndex(countryCode, partyId, ocpiId);
+
+            if (mongoSmartLocationOpt.isPresent()) {
+                log.info("Location already exists, patching instead of putting | id: {}", ocpiId);
+                patchLocation(locationDTO, countryCode, partyId, ocpiId);
+                return;
+            }
+
             Location location = LocationMapper.toLocationEntity(locationDTO);
             // Convert Location to MongoSmartLocation with smart upsert
-            mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
+            MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
             mongoSmartLocation.setSmartLocationState(SmartLocationState.PLAIN_OCPI);
             mongoSmartLocation.setPublish(false);
             smartLocationRepository.save(mongoSmartLocation);

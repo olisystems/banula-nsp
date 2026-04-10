@@ -16,6 +16,8 @@ import com.banula.openlib.ocpi.model.enums.InterfaceRole;
 import com.banula.openlib.ocpi.model.enums.ModuleID;
 import java.util.Map;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -103,7 +105,7 @@ public class RemoteStillAliveCheck implements Runnable {
                         .countryCode(party.getCountryCode())
                         .role(party.getRole())
                         .status(ConnectionStatus.CONNECTED) // Keep current status for now
-                        .lastUpdated(java.time.LocalDateTime.now())
+                        .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
                         .build();
 
                 hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(
