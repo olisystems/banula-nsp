@@ -58,7 +58,11 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
             MongoSmartLocation existingMongoSmartLocation = smartLocationRepository
                     .findByCompoundIndex(countryCode, partyId, id)
-                    .orElseThrow(() -> new RuntimeException("Location not found with id: " + id));
+                    .orElse(null);
+
+            if (existingMongoSmartLocation == null) {
+                return null;
+            }
 
             // MongoSmartLocation extends SmartLocation, so we can cast directly
             SmartLocation existingEntity = existingMongoSmartLocation;
@@ -117,6 +121,23 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         }
         if (locationId == null || locationId.isEmpty()) {
             throw new OCPICustomException("Location ID in path cannot be null or empty",
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+        }
+
+        // Validate that provided identifiers in the body match the path variables
+        if (locationDTO.getId() != null && !locationDTO.getId().equals(locationId)) {
+            throw new OCPICustomException(
+                    "Location ID in body '" + locationDTO.getId() + "' does not match path variable '" + locationId + "'",
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+        }
+        if (locationDTO.getCountryCode() != null && !locationDTO.getCountryCode().equals(countryCode)) {
+            throw new OCPICustomException(
+                    "Country code in body '" + locationDTO.getCountryCode() + "' does not match path variable '" + countryCode + "'",
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+        }
+        if (locationDTO.getPartyId() != null && !locationDTO.getPartyId().equals(partyId)) {
+            throw new OCPICustomException(
+                    "Party ID in body '" + locationDTO.getPartyId() + "' does not match path variable '" + partyId + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
 

@@ -278,15 +278,25 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             Integer offset, Integer limit) {
         try {
             int safeOffset = offset == null ? 0 : offset;
-            int safeLimit = limit == null ? 100 : limit;
+            int safeLimit = (limit == null || limit <= 0) ? 100 : limit;
+            int remainder = safeOffset % safeLimit;
             int page = safeOffset / safeLimit;
-            Pageable pageable = PageRequest.of(page, safeLimit);
-            return smartLocationRepository.findVerifiedSmartLocations(dateFrom, dateTo, pageable)
+            // Fetch safeLimit + remainder items so that after skipping `remainder` we have
+            // exactly safeLimit items for non-page-aligned offsets
+            int pageSize = safeLimit + remainder;
+            Pageable pageable = PageRequest.of(page, pageSize);
+            List<LocationDTO> items = smartLocationRepository.findVerifiedSmartLocations(dateFrom, dateTo, pageable)
                     .getContent()
                     .stream()
                     .map(mongoLoc -> (Location) mongoLoc) // MongoSmartLocation extends Location
                     .map(LocationMapper::toLocationDTO)
                     .toList();
+            if (remainder == 0) {
+                return items;
+            }
+            int fromIndex = Math.min(remainder, items.size());
+            int toIndex = Math.min(fromIndex + safeLimit, items.size());
+            return items.subList(fromIndex, toIndex);
         } catch (Exception e) {
             String errorMessage = "Error happened while fetching locations, error message: " + e.getLocalizedMessage();
             log.info(errorMessage);
