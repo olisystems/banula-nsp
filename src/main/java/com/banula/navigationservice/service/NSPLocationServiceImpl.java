@@ -14,9 +14,13 @@ import com.banula.openlib.ocpi.util.ModelPatcherUtil;
 import com.banula.navigationservice.config.MongoCollectionMapper;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -29,7 +33,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     private final MongoCollectionMapper mongoCollectionMapper;
 
     @Override
-    public Object getLocationConnector(String countryCode, String party_id, String locationId, String evseUid,
+    public Object getLocationEvseConnector(String countryCode, String party_id, String locationId, String evseUid,
             String connectorId) {
         try {
             return locationUtility.findLocations(countryCode, party_id, locationId, evseUid, connectorId,
@@ -45,7 +49,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void putEvse(EVSE evseVO, String countryCode, String party_id, String locationId, String evseUid) {
 
         // get the locationDTO
-        LocationDTO locationDTO = (LocationDTO) getLocationConnector(countryCode, party_id, locationId, null, null);
+        LocationDTO locationDTO = (LocationDTO) getLocationEvseConnector(countryCode, party_id, locationId, null, null);
         if (locationDTO == null) {
             throw new OCPICustomException("Location not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
@@ -55,7 +59,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         if (locationDTO.getEvses() == null) {
             locationDTO.setEvses(new ArrayList<>());
         } else {
-            currentEVSE = (EVSE) getLocationConnector(countryCode, party_id, locationId, evseUid, null);
+            currentEVSE = (EVSE) getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null);
         }
         if (currentEVSE != null) {
             locationDTO.getEvses().removeIf(evse -> evse.getUid().equals(evseUid));
@@ -70,18 +74,18 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void patchEvse(EVSE incompleteEvse, String countryCode, String party_id, String locationId, String evseUid) {
         try {
 
-            Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository.findByCompositeKey(
-                    countryCode, party_id, locationId);
+            Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
+                    .findByCountryCodeAndPartyIdAndId(
+                            countryCode, party_id, locationId);
 
-            if(optionalMongoSmartLocation.isEmpty()) {
+            if (optionalMongoSmartLocation.isEmpty()) {
                 throw new OCPICustomException("Location not found",
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
 
-            if (getLocationConnector(countryCode, party_id, locationId, evseUid, null) == null) {
+            if (getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null) == null) {
                 throw new OCPICustomException("EVSE not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
-
 
             Location existingLocation = optionalMongoSmartLocation.get();
             EVSE existingEvseToUpdate = LocationUtility.getEvseInLocation(existingLocation, evseUid);
@@ -106,13 +110,13 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void putConnector(Connector connectorVO, String countryCode, String party_id, String locationId,
             String evseUid, String connectorId) {
         // get the locationDTO
-        LocationDTO locationDTO = (LocationDTO) getLocationConnector(countryCode, party_id, locationId, null, null);
+        LocationDTO locationDTO = (LocationDTO) getLocationEvseConnector(countryCode, party_id, locationId, null, null);
         if (locationDTO == null) {
             throw new OCPICustomException("Location not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
 
         // get the EVSE and current index
-        EVSE evse = (EVSE) getLocationConnector(countryCode, party_id, locationId, evseUid, null);
+        EVSE evse = (EVSE) getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null);
         if (evse == null) {
             throw new OCPICustomException("EVSE not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
@@ -142,17 +146,18 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             String evseUid, String connectorId) {
         try {
             // verify if location EVSE and Connector exists
-            Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository.findByCompositeKey(
-                    countryCode, party_id, locationId);
+            Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
+                    .findByCountryCodeAndPartyIdAndId(
+                            countryCode, party_id, locationId);
 
-            if(optionalMongoSmartLocation.isEmpty()) {
+            if (optionalMongoSmartLocation.isEmpty()) {
                 throw new OCPICustomException("Location not found",
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
-            if (getLocationConnector(countryCode, party_id, locationId, evseUid, null) == null) {
+            if (getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null) == null) {
                 throw new OCPICustomException("EVSE not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
-            if (getLocationConnector(countryCode, party_id, locationId, evseUid, connectorId) == null) {
+            if (getLocationEvseConnector(countryCode, party_id, locationId, evseUid, connectorId) == null) {
                 throw new OCPICustomException("Connector not found",
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
@@ -182,10 +187,11 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     @Override
     public void putLocation(LocationDTO locationDTO, String countryCode, String partyId, String ocpiId) {
         try {
-            MongoSmartLocation mongoSmartLocation = smartLocationRepository.findByCompositeKey(countryCode, partyId, ocpiId)
+            MongoSmartLocation mongoSmartLocation = smartLocationRepository
+                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, ocpiId)
                     .orElse(null);
             Location location = LocationMapper.toLocationEntity(locationDTO);
-            if(mongoSmartLocation == null) {
+            if (mongoSmartLocation == null) {
                 mongoSmartLocation = new MongoSmartLocation();
             }
             mongoSmartLocation.updateLocation(location);
@@ -203,13 +209,35 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void patchLocation(LocationDTO locationDTO, String countryCode, String partyId, String id) {
         try {
             Location incompleteLocation = LocationMapper.toLocationEntity(locationDTO);
-            MongoSmartLocation mongoExistingLocation = smartLocationRepository.findByCompositeKey(countryCode, partyId, id)
+            MongoSmartLocation mongoExistingLocation = smartLocationRepository
+                    .findByCountryCodeAndPartyIdAndId(countryCode, partyId, id)
                     .orElseThrow(RuntimeException::new);
             ModelPatcherUtil.locationPatcher(mongoExistingLocation, incompleteLocation);
             mongoExistingLocation.updateLocation(mongoExistingLocation);
             smartLocationRepository.save(mongoExistingLocation);
         } catch (Exception e) {
             String errorMessage = "Error happened while patching location: " + e.getLocalizedMessage();
+            log.info(errorMessage);
+            throw new OCPICustomException(errorMessage);
+        }
+    }
+
+    @Override
+    public List<LocationDTO> findLocations(LocalDateTime dateFrom, LocalDateTime dateTo,
+            Integer offset, Integer limit) {
+        try {
+            int safeOffset = offset == null ? 0 : offset;
+            int safeLimit = limit == null ? 100 : limit;
+            int page = safeOffset / safeLimit;
+            Pageable pageable = PageRequest.of(page, safeLimit);
+            return smartLocationRepository.findPublishedSmartLocations(dateFrom, dateTo, pageable)
+                    .getContent()
+                    .stream()
+                    .map(MongoSmartLocation::mapToLocationOnly)
+                    .map(LocationMapper::toLocationDTO)
+                    .toList();
+        } catch (Exception e) {
+            String errorMessage = "Error happened while fetching locations, error message: " + e.getLocalizedMessage();
             log.info(errorMessage);
             throw new OCPICustomException(errorMessage);
         }

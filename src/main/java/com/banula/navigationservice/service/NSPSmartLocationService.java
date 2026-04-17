@@ -5,14 +5,15 @@ import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import java.util.List;
 
 public interface NSPSmartLocationService {
-    List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId);
+        List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId);
 
-    SmartLocationDTO getLocation(String countryCode, String partyId, String locationId);
+        SmartLocationDTO getLocation(String countryCode, String partyId, String locationId);
 
-    SmartLocationDTO getLocationByMaloId(String maloId);
+        SmartLocationDTO getLocationByMaloId(String maloId);
 
-    List<SmartLocationDTO> getAllLocations();
+        List<SmartLocationDTO> getAllLocations();
 
-    SmartLocationDTO saveSmartLocation(String id, String countryCode, String partyId,
-            SmartLocationDTO smartLocationDTO);
+        SmartLocationDTO patchSmartLocation(String countryCode, String partyId, String id,
+                        SmartLocationDTO smartLocationDTO);
+
 }

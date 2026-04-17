@@ -1,0 +1,24 @@
+{
+  "properties": [
+    {
+      "name": "platform.url",
+      "type": "java.lang.String",
+      "description": "Platform URL endpoint"
+    },
+    {
+      "name": "platform.party-id",
+      "type": "java.lang.String",
+      "description": "Platform party ID"
+    },
+    {
+      "name": "platform.country-code",
+      "type": "java.lang.String",
+      "description": "Platform country code"
+    },
+    {
+      "name": "api.url",
+      "type": "java.lang.String",
+      "description": "API URL endpoint"
+    }
+  ]
+}
