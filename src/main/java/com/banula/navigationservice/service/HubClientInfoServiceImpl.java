@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -105,7 +106,7 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       mongoClientInfo.setRole(clientInfoDTO.getRole());
     }
     mongoClientInfo.setStatus(clientInfoDTO.getStatus());
-    mongoClientInfo.setLastUpdated(LocalDateTime.now());
+    mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
     return ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
   }
 
@@ -119,7 +120,7 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       mongoClientInfo.setRole(clientInfoDTO.getRole());
     }
     mongoClientInfo.setStatus(clientInfoDTO.getStatus());
-    mongoClientInfo.setLastUpdated(LocalDateTime.now());
+    mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
     return ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
   }
 

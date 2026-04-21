@@ -66,7 +66,7 @@
         <dependency>
             <groupId>com.my-oli</groupId>
             <artifactId>banula-open-library</artifactId>
-            <version>0.1.27-SNAPSHOT</version>
+            <version>0.1.28</version>
         </dependency>
 		<dependency>
 			<groupId>org.aspectj</groupId>
@@ -111,72 +111,6 @@
 						</exclude>
 					</excludes>
 				</configuration>
-			</plugin>
-			<!-- Plugin to run Node.js commands -->
-			<plugin>
-				<groupId>com.github.eirslett</groupId>
-				<artifactId>frontend-maven-plugin</artifactId>
-				<version>1.15.1</version>
-				<executions>
-					<!-- Install Node and NPM -->
-					<execution>
-						<id>install-node-and-npm</id>
-						<goals>
-							<goal>install-node-and-npm</goal>
-						</goals>
-						<phase>generate-resources</phase>
-					</execution>
-					<!-- Install Node dependencies -->
-					<execution>
-						<id>npm-install</id>
-						<goals>
-							<goal>npm</goal>
-						</goals>
-						<configuration>
-							<arguments>install</arguments>
-						</configuration>
-					</execution>
-					<!-- Build React app -->
-					<execution>
-						<id>npm-build</id>
-						<goals>
-							<goal>npm</goal>
-						</goals>
-						<configuration>
-							<arguments>run build</arguments>
-						</configuration>
-					</execution>
-				</executions>
-				<configuration>
-					<nodeVersion>v20.0.0</nodeVersion>
-					<npmVersion>11.0.0</npmVersion>
-					<workingDirectory>${project.basedir}/frontend</workingDirectory>
-				</configuration>
-			</plugin>
-
-			<!-- Plugin to copy React build to Spring Boot static folder -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.3.1</version>
-				<executions>
-					<execution>
-						<id>copy-react-build</id>
-						<phase>generate-resources</phase>
-						<goals>
-							<goal>copy-resources</goal>
-						</goals>
-						<configuration>
-							<outputDirectory>${project.basedir}/src/main/resources/static</outputDirectory>
-							<resources>
-								<resource>
-									<directory>${project.basedir}/frontend/dist</directory>
-									<filtering>false</filtering>
-								</resource>
-							</resources>
-						</configuration>
-					</execution>
-				</executions>
 			</plugin>
 		</plugins>
 	</build>

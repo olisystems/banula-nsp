@@ -1,6 +1,7 @@
 package com.banula.navigationservice.controller.nonocpi;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -17,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 
@@ -45,6 +47,13 @@ public class NonOcpiSmartLocationController {
     @CrossOrigin
     public ResponseEntity<OcpiResponse<List<SmartLocationDTO>>> getAllLocations() {
         return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.getAllLocations()));
+    }
+
+    @GetMapping("/party-set")
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<Set<String>>> getPartySet() {
+        return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.getPartySet()));
     }
 
     @GetMapping("/{countryCode}/{partyId}")
@@ -85,6 +94,7 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "locationId") String locationId,
             @RequestBody SmartLocationDTO smartLocationDTO,
             HttpServletRequest request) {
+        smartLocationDTO.setSmartLocationState(SmartLocationState.ENRICHED);
         SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, party_id, locationId,
                 smartLocationDTO);
 
