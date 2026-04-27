@@ -7,6 +7,8 @@ import com.banula.openlib.ocpi.util.LocationUtility;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
 import com.banula.openlib.ocpi.mapper.LocationMapper;
 import com.banula.openlib.ocpi.model.Location;
+import com.banula.openlib.ocpi.model.dto.ConnectorDTO;
+import com.banula.openlib.ocpi.model.dto.EvseDTO;
 import com.banula.openlib.ocpi.model.dto.LocationDTO;
 import com.banula.openlib.ocpi.model.vo.Connector;
 import com.banula.openlib.ocpi.model.vo.EVSE;
@@ -62,9 +64,9 @@ public class NSPLocationServiceImpl implements NSPLocationService {
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
 
-            // If connectorId is null, return the EVSE
+            // If connectorId is null, return the EVSE as DTO
             if (connectorId == null) {
-                return evse;
+                return genericMongoMapper.evseToDTO(evse);
             }
 
             // Case 3: Both evseUid and connectorId are not null -> find Connector
@@ -74,7 +76,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
 
-            return connector;
+            return genericMongoMapper.connectorToDTO(connector);
 
         } catch (OCPICustomException e) {
             throw e;
@@ -86,7 +88,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     }
 
     @Override
-    public void putEvse(EVSE evseVO, String countryCode, String party_id, String locationId, String evseUid) {
+    public void putEvse(EvseDTO evseVO, String countryCode, String party_id, String locationId, String evseUid) {
 
         // get the locationDTO
         LocationDTO locationDTO = (LocationDTO) getLocationEvseConnector(countryCode, party_id, locationId, null, null);
@@ -95,11 +97,11 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         }
 
         // verify if the evseUid is already registered and replace object
-        EVSE currentEVSE = null;
+        EvseDTO currentEVSE = null;
         if (locationDTO.getEvses() == null) {
             locationDTO.setEvses(new ArrayList<>());
         } else {
-            currentEVSE = (EVSE) getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null);
+            currentEVSE = (EvseDTO) getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null);
         }
         if (currentEVSE != null) {
             locationDTO.getEvses().removeIf(evse -> evse.getUid().equals(evseUid));
@@ -111,7 +113,9 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         putLocation(locationDTO, countryCode, party_id, locationId);
     }
 
-    public void patchEvse(EVSE incompleteEvse, String countryCode, String party_id, String locationId, String evseUid) {
+    @Override
+    public void patchEvse(EvseDTO incompleteEvseDto, String countryCode, String party_id, String locationId,
+            String evseUid) {
         try {
 
             Optional<MongoSmartLocation> optionalMongoSmartLocation = smartLocationRepository
@@ -129,6 +133,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
 
             Location existingLocation = optionalMongoSmartLocation.get();
             EVSE existingEvseToUpdate = LocationUtility.findEvseInLocationByEvseUid(evseUid, existingLocation);
+            EVSE incompleteEvse = genericMongoMapper.evseFromDTO(incompleteEvseDto);
             ModelPatcherUtil.evsePatcher(existingLocation, existingEvseToUpdate, incompleteEvse);
 
             // substitute old EVSE with new EVSE and save location
@@ -148,7 +153,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     }
 
     @Override
-    public void putConnector(Connector connectorVO, String countryCode, String party_id, String locationId,
+    public void putConnector(ConnectorDTO connectorVO, String countryCode, String party_id, String locationId,
             String evseUid, String connectorId) {
         // get the locationDTO
         LocationDTO locationDTO = (LocationDTO) getLocationEvseConnector(countryCode, party_id, locationId, null, null);
@@ -156,34 +161,35 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             throw new OCPICustomException("Location not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
 
-        // get the EVSE and current index
-        EVSE evse = (EVSE) getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null);
-        if (evse == null) {
+        // get the EVSE DTO and current index
+        EvseDTO evseDTO = (EvseDTO) getLocationEvseConnector(countryCode, party_id, locationId, evseUid, null);
+        if (evseDTO == null) {
             throw new OCPICustomException("EVSE not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
-        int evseCurrentIndex = LocationUtility.evseIndexOf(locationDTO.getEvses(), evse);
+        int evseCurrentIndex = LocationUtility.evseDTOIndexOf(locationDTO.getEvses(), evseDTO);
 
         // verify if the connector is already registered and replace object, otherwise
         // add it
-        if (evse.getConnectors() == null) {
-            evse.setConnectors(new ArrayList<>());
+        if (evseDTO.getConnectors() == null) {
+            evseDTO.setConnectors(new ArrayList<>());
         }
-        int currentConnectorIndex = LocationUtility.connectorIndexOf(evse.getConnectors(), connectorVO);
+        int currentConnectorIndex = LocationUtility.connectorDTOIndexOf(evseDTO.getConnectors(), connectorVO);
         if (currentConnectorIndex != -1) {
-            evse.getConnectors().set(currentConnectorIndex, connectorVO);
+            evseDTO.getConnectors().set(currentConnectorIndex, connectorVO);
         } else {
-            evse.getConnectors().add(connectorVO);
+            evseDTO.getConnectors().add(connectorVO);
         }
 
         // replace the EVSE in the locationDTO
-        locationDTO.getEvses().set(evseCurrentIndex, evse);
+        locationDTO.getEvses().set(evseCurrentIndex, evseDTO);
 
         // push the updated locationDTO to the database
         putLocation(locationDTO, countryCode, party_id, locationId);
     }
 
     @Override
-    public void patchConnector(Connector incompleteConnector, String countryCode, String party_id, String locationId,
+    public void patchConnector(ConnectorDTO incompleteConnectorDTO, String countryCode, String party_id,
+            String locationId,
             String evseUid, String connectorId) {
         try {
             // verify if location EVSE and Connector exists
@@ -207,6 +213,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             EVSE existingEvse = LocationUtility.findEvseInLocationByEvseUid(evseUid, mongoSmartLocation);
             Connector existingConnectorToUpdate = LocationUtility.findConnectorInEvseByConnectorId(connectorId,
                     existingEvse);
+            Connector incompleteConnector = genericMongoMapper.connectorFromDTO(incompleteConnectorDTO);
 
             ModelPatcherUtil.connectorPatcher(mongoSmartLocation, existingEvse, existingConnectorToUpdate,
                     incompleteConnector);

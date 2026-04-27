@@ -7,9 +7,9 @@ import com.banula.openlib.ocpi.annotation.ValidateConnector;
 import com.banula.openlib.ocpi.annotation.ValidateEVSE;
 import com.banula.openlib.ocpi.annotation.ValidateLocation;
 import com.banula.openlib.ocpi.model.OcpiResponse;
+import com.banula.openlib.ocpi.model.dto.ConnectorDTO;
+import com.banula.openlib.ocpi.model.dto.EvseDTO;
 import com.banula.openlib.ocpi.model.dto.LocationDTO;
-import com.banula.openlib.ocpi.model.vo.Connector;
-import com.banula.openlib.ocpi.model.vo.EVSE;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -117,7 +117,7 @@ public class NSPLocationController {
     @ValidateEVSE
     @PutMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}" })
     public ResponseEntity<OcpiResponse<String>> putLocationEvse(
-            @RequestBody @Valid EVSE evseVO,
+            @RequestBody @Valid EvseDTO evseVO,
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId,
@@ -131,7 +131,7 @@ public class NSPLocationController {
     @ValidateConnector
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> putLocationEvseConnector(
-            @RequestBody @Valid Connector connectorVO,
+            @RequestBody @Valid ConnectorDTO connectorVO,
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId,
@@ -165,7 +165,7 @@ public class NSPLocationController {
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}" })
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> patchEVSE(
-            @RequestBody EVSE evse,
+            @RequestBody EvseDTO evse,
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId,
@@ -177,7 +177,7 @@ public class NSPLocationController {
     @LogRequest
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}/{connectorId}" })
     public ResponseEntity<OcpiResponse<String>> patchLocationEvseConnector(
-            @RequestBody Connector connectorVO,
+            @RequestBody ConnectorDTO connectorVO,
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId,
