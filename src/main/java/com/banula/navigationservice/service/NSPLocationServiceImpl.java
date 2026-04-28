@@ -1,11 +1,10 @@
 package com.banula.navigationservice.service;
 
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
-import com.banula.navigationservice.model.MongoSmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.ocpi.util.LocationUtility;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
-import com.banula.openlib.ocpi.mapper.LocationMapper;
 import com.banula.openlib.ocpi.model.Location;
 import com.banula.openlib.ocpi.model.dto.ConnectorDTO;
 import com.banula.openlib.ocpi.model.dto.EvseDTO;
@@ -54,7 +53,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
 
             // Case 1: No evseUid and no connectorId -> return LocationDTO
             if (evseUid == null && connectorId == null) {
-                return LocationMapper.toLocationDTO(location);
+                return genericMongoMapper.locationToDTO(location);
             }
 
             // Case 2: evseUid is not null -> find EVSE
@@ -247,7 +246,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
                 return;
             }
 
-            Location location = LocationMapper.toLocationEntity(locationDTO);
+            Location location = genericMongoMapper.locationFromDTO(locationDTO);
             // Convert Location to MongoSmartLocation with smart upsert
             MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
             mongoSmartLocation.setSmartLocationState(SmartLocationState.PLAIN_OCPI);
@@ -265,7 +264,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     @Override
     public void patchLocation(LocationDTO locationDTO, String countryCode, String partyId, String id) {
         try {
-            Location incompleteLocation = LocationMapper.toLocationEntity(locationDTO);
+            Location incompleteLocation = genericMongoMapper.locationFromDTO(locationDTO);
             MongoSmartLocation mongoExistingLocation = smartLocationRepository
                     .findByCompoundIndex(countryCode, partyId, id)
                     .orElseThrow(RuntimeException::new);
@@ -296,7 +295,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
                     .getContent()
                     .stream()
                     .map(mongoLoc -> (Location) mongoLoc) // MongoSmartLocation extends Location
-                    .map(LocationMapper::toLocationDTO)
+                    .map(genericMongoMapper::locationToDTO)
                     .toList();
             if (remainder == 0) {
                 return items;

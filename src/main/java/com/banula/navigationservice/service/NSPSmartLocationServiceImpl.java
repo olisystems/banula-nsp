@@ -1,7 +1,7 @@
 package com.banula.navigationservice.service;
 
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
-import com.banula.navigationservice.model.MongoSmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
@@ -127,17 +127,20 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         // Validate that provided identifiers in the body match the path variables
         if (locationDTO.getId() != null && !locationDTO.getId().equals(locationId)) {
             throw new OCPICustomException(
-                    "Location ID in body '" + locationDTO.getId() + "' does not match path variable '" + locationId + "'",
+                    "Location ID in body '" + locationDTO.getId() + "' does not match path variable '" + locationId
+                            + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
         if (locationDTO.getCountryCode() != null && !locationDTO.getCountryCode().equals(countryCode)) {
             throw new OCPICustomException(
-                    "Country code in body '" + locationDTO.getCountryCode() + "' does not match path variable '" + countryCode + "'",
+                    "Country code in body '" + locationDTO.getCountryCode() + "' does not match path variable '"
+                            + countryCode + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
         if (locationDTO.getPartyId() != null && !locationDTO.getPartyId().equals(partyId)) {
             throw new OCPICustomException(
-                    "Party ID in body '" + locationDTO.getPartyId() + "' does not match path variable '" + partyId + "'",
+                    "Party ID in body '" + locationDTO.getPartyId() + "' does not match path variable '" + partyId
+                            + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
 

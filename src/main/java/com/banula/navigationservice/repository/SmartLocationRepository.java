@@ -1,6 +1,6 @@
 package com.banula.navigationservice.repository;
 
-import com.banula.navigationservice.model.MongoSmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
 import com.banula.openlib.mongodb.repository.OcpiCommonCompoundIndex;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

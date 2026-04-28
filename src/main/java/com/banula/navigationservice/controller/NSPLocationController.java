@@ -3,9 +3,9 @@ package com.banula.navigationservice.controller;
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
-import com.banula.openlib.ocpi.annotation.ValidateConnector;
-import com.banula.openlib.ocpi.annotation.ValidateEVSE;
-import com.banula.openlib.ocpi.annotation.ValidateLocation;
+import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
+import com.banula.openlib.ocpi.annotation.OcpiPatchCompositeId;
+import com.banula.openlib.ocpi.annotation.OcpiPutCompositeId;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.ConnectorDTO;
 import com.banula.openlib.ocpi.model.dto.EvseDTO;
@@ -47,8 +47,6 @@ public class NSPLocationController {
      * @return List of all Locations with valid EVSEs.
      */
     @GetMapping
-    // used only for ocpi complient endpoints, this is the only one here, other
-    // methods should use AuthorizeTokenB
     @LogRequest
     public ResponseEntity<OcpiResponse<List<LocationDTO>>> getLocations(
             @RequestParam(value = "date_from", required = false) LocalDateTime dateFrom,
@@ -77,6 +75,7 @@ public class NSPLocationController {
      *         Connector - If a Connector object was requested: the Connector
      *         object.
      */
+    @OcpiGetCompositeId
     @GetMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}/{connectorId}",
             "/{countryCode}/{partyId}/{locationId}/{evseUid}", "/{countryCode}/{partyId}/{locationId}" })
     public ResponseEntity<OcpiResponse<Object>> getLocationEvseConnector(
@@ -100,7 +99,7 @@ public class NSPLocationController {
      * @param locationId  Location.id, required.
      */
 
-    @ValidateLocation
+    @OcpiPutCompositeId
     @PutMapping(value = { "/{countryCode}/{partyId}/{locationId}" })
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> putLocation(
@@ -113,9 +112,9 @@ public class NSPLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
-    @LogRequest
-    @ValidateEVSE
+    @OcpiPutCompositeId
     @PutMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}" })
+    @LogRequest
     public ResponseEntity<OcpiResponse<String>> putLocationEvse(
             @RequestBody @Valid EvseDTO evseVO,
             @PathVariable(value = "countryCode") String countryCode,
@@ -127,8 +126,8 @@ public class NSPLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
+    @OcpiPutCompositeId
     @PutMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}/{connectorId}" })
-    @ValidateConnector
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> putLocationEvseConnector(
             @RequestBody @Valid ConnectorDTO connectorVO,
@@ -149,6 +148,7 @@ public class NSPLocationController {
                         "name": "Mukunds second lab"
                     }
                     """))))
+    @OcpiPatchCompositeId
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}" })
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> patchLocation(
@@ -161,7 +161,7 @@ public class NSPLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
-    @ValidateEVSE
+    @OcpiPatchCompositeId
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}" })
     @LogRequest
     public ResponseEntity<OcpiResponse<String>> patchEVSE(
@@ -174,8 +174,9 @@ public class NSPLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
-    @LogRequest
+    @OcpiPatchCompositeId
     @PatchMapping(value = { "/{countryCode}/{partyId}/{locationId}/{evseUid}/{connectorId}" })
+    @LogRequest
     public ResponseEntity<OcpiResponse<String>> patchLocationEvseConnector(
             @RequestBody ConnectorDTO connectorVO,
             @PathVariable(value = "countryCode") String countryCode,
