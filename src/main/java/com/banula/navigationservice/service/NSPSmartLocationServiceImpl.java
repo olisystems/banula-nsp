@@ -25,10 +25,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PushbackReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -199,6 +202,8 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     private static final int MAX_IMPORT_ROWS = 1000;
 
+    private static final char BOM = (char) 0xFEFF;
+
     private static final String[] CSV_HEADERS = {
             "country_code", "party_id", "location_id",
             "market_location_id", "metering_location_id",
@@ -225,17 +230,36 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
                 .setTrim(true)
                 .build();
 
-        try (CSVParser parser = CSVParser.parse(
-                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8), format)) {
+        try (PushbackReader reader = new PushbackReader(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            int firstChar = reader.read();
+            if (firstChar != -1 && firstChar != BOM) {
+                reader.unread(firstChar);
+            }
 
-            for (CSVRecord record : parser) {
-                if (result.getTotalRows() >= MAX_IMPORT_ROWS) {
-                    result.addError(record.getRecordNumber(), null,
-                            "Row limit of " + MAX_IMPORT_ROWS + " exceeded; remaining rows skipped");
-                    break;
+            try (CSVParser parser = CSVParser.parse(reader, format)) {
+                List<String> headerNames = parser.getHeaderNames();
+                List<String> missingHeaders = new ArrayList<>();
+                for (String required : CSV_HEADERS) {
+                    if (!headerNames.contains(required)) {
+                        missingHeaders.add(required);
+                    }
                 }
-                result.setTotalRows(result.getTotalRows() + 1);
-                processRow(record, result);
+                if (!missingHeaders.isEmpty()) {
+                    throw new OCPICustomException(
+                            "CSV is missing required columns: " + String.join(", ", missingHeaders),
+                            Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+                }
+
+                for (CSVRecord record : parser) {
+                    if (result.getTotalRows() >= MAX_IMPORT_ROWS) {
+                        result.addError(record.getRecordNumber(), null,
+                                "Row limit of " + MAX_IMPORT_ROWS + " exceeded; remaining rows skipped");
+                        break;
+                    }
+                    result.setTotalRows(result.getTotalRows() + 1);
+                    processRow(record, result);
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to read CSV file: " + e.getMessage(), e);
@@ -258,7 +282,6 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             }
 
             SmartLocationDTO dto = buildDtoFromRow(record);
-            dto.setSmartLocationState(SmartLocationState.ENRICHED);
 
             SmartLocationDTO updated = patchSmartLocation(countryCode, partyId, locationId, dto);
             if (updated == null) {
@@ -291,8 +314,11 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             try {
                 dto.setMeteringDataSource(MeteringDataSource.valueOf(meteringDataSource.trim().toUpperCase()));
             } catch (IllegalArgumentException e) {
+                String allowed = Arrays.stream(MeteringDataSource.values())
+                        .map(Enum::name)
+                        .collect(Collectors.joining(", "));
                 throw new OCPICustomException(
-                        "Invalid metering_data_source '" + meteringDataSource + "'. Allowed: MSCONS, SMART_METER, CONTROL_BACKEND",
+                        "Invalid metering_data_source '" + meteringDataSource + "'. Allowed: " + allowed,
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
         }
@@ -329,19 +355,19 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     @Override
     public String generateImportTemplate(String countryCode, String partyId) {
-        List<MongoSmartLocation> locations;
-        if (!isBlank(countryCode) && !isBlank(partyId)) {
-            locations = smartLocationRepository.findByCountryCodeAndPartyId(countryCode, partyId);
-        } else {
-            locations = smartLocationRepository.findAll();
-        }
-
         StringWriter writer = new StringWriter();
         CSVFormat format = CSVFormat.DEFAULT.builder()
                 .setHeader(CSV_HEADERS)
                 .build();
 
         try (CSVPrinter printer = new CSVPrinter(writer, format)) {
+            if (isBlank(countryCode) || isBlank(partyId)) {
+                log.warn("generateImportTemplate called without countryCode/partyId filters; returning header-only template to avoid unbounded CSV generation");
+                return writer.toString();
+            }
+
+            List<MongoSmartLocation> locations =
+                    smartLocationRepository.findByCountryCodeAndPartyId(countryCode, partyId);
             for (MongoSmartLocation location : locations) {
                 DefaultSupplier supplier = location.getDefaultSupplier();
                 MeteringDataSource source = location.getMeteringDataSource();

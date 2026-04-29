@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -169,7 +170,7 @@ public class NonOcpiSmartLocationController {
         String filename = (!isBlankParam(countryCode) && !isBlankParam(partyId))
                 ? "smart-locations-template-" + countryCode + "-" + partyId + ".csv"
                 : "smart-locations-template.csv";
-        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
         return ResponseEntity.ok().headers(headers).body(body);
     }
 
