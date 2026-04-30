@@ -1,8 +1,12 @@
 package com.banula.navigationservice.controller.nonocpi;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,11 +15,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.dto.BulkImportResultDTO;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
@@ -24,6 +31,8 @@ import com.banula.openlib.ocpi.model.OcpiResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -131,5 +140,41 @@ public class NonOcpiSmartLocationController {
         }
 
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
+    }
+
+    @Operation(summary = "Bulk import smart locations from CSV", description = "Enriches existing locations using a CSV file. Each row is patched independently; rows that fail are reported in the response.")
+    @PostMapping(value = "/bulk-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<BulkImportResultDTO>> bulkImport(
+            @RequestParam("file") MultipartFile file) {
+        BulkImportResultDTO result = nspSmartLocationService.bulkImport(file);
+        return ResponseEntity.ok(new OcpiResponse<>(result));
+    }
+
+    @Operation(summary = "Download smart location import template", description = "Returns a CSV with the import header row and one row per existing location, with country_code, party_id and location_id pre-filled. Optionally filter by countryCode and partyId.")
+    @Parameters({
+            @Parameter(name = "countryCode", in = ParameterIn.QUERY, required = false, description = "Filter by country code", schema = @Schema(type = "string")),
+            @Parameter(name = "partyId", in = ParameterIn.QUERY, required = false, description = "Filter by party ID", schema = @Schema(type = "string"))
+    })
+    @GetMapping("/bulk-import/template")
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<byte[]> downloadImportTemplate(
+            @org.springframework.web.bind.annotation.RequestParam(value = "countryCode", required = false) String countryCode,
+            @org.springframework.web.bind.annotation.RequestParam(value = "partyId", required = false) String partyId) {
+        String csv = nspSmartLocationService.generateImportTemplate(countryCode, partyId);
+        byte[] body = csv.getBytes(StandardCharsets.UTF_8);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+        String filename = (!isBlankParam(countryCode) && !isBlankParam(partyId))
+                ? "smart-locations-template-" + countryCode + "-" + partyId + ".csv"
+                : "smart-locations-template.csv";
+        headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
+        return ResponseEntity.ok().headers(headers).body(body);
+    }
+
+    private static boolean isBlankParam(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }
