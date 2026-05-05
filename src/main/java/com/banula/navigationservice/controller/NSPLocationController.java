@@ -1,5 +1,18 @@
 package com.banula.navigationservice.controller;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
@@ -17,12 +30,6 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/internal/ocpi/2.2.1/locations")
@@ -62,17 +69,17 @@ public class NSPLocationController {
      * 
      * @param countryCode Country code of the CPO requesting data from the eMSP
      *                    system.
-     * @param party_id    Party ID (Provider ID) of the CPO requesting data from the
+     * @param partyId     Party ID (Provider ID) of the CPO requesting data from the
      *                    eMSP system.
      * @param locationId  Location.id of the Location object to retrieve.
      * @param evseUid     Evse.uid, required when requesting an EVSE or Connector
      *                    object.
-     * @param connectorId Evse.uid, required when requesting an EVSE or Connector
-     *                    object.
+     * @param connectorId Connector.id, required when requesting a Connector object.
      * @return The response contains the requested object:
-     *         Location - If a Location object was requested: the Location object.
-     *         EVSE - If an EVSE object was requested: the EVSE object.
-     *         Connector - If a Connector object was requested: the Connector
+     *         LocationDTO - If a Location object was requested: the LocationDTO
+     *         object.
+     *         EvseDTO - If an EVSE object was requested: the EvseDTO object.
+     *         ConnectorDTO - If a Connector object was requested: the ConnectorDTO
      *         object.
      */
     @OcpiGetCompositeId
@@ -80,12 +87,12 @@ public class NSPLocationController {
             "/{countryCode}/{partyId}/{locationId}/{evseUid}", "/{countryCode}/{partyId}/{locationId}" })
     public ResponseEntity<OcpiResponse<Object>> getLocationEvseConnector(
             @PathVariable(value = "countryCode") String countryCode,
-            @PathVariable(value = "partyId") String party_id,
+            @PathVariable(value = "partyId") String partyId,
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid", required = false) String evseUid,
             @PathVariable(value = "connectorId", required = false) String connectorId) {
         return ResponseEntity.ok(new OcpiResponse<>(locationService.getLocationEvseConnector(
-                countryCode, party_id, locationId, evseUid, connectorId)));
+                countryCode, partyId, locationId, evseUid, connectorId)));
     }
 
     /**
@@ -118,11 +125,11 @@ public class NSPLocationController {
     public ResponseEntity<OcpiResponse<String>> putLocationEvse(
             @RequestBody @Valid EvseDTO evseVO,
             @PathVariable(value = "countryCode") String countryCode,
-            @PathVariable(value = "partyId") String party_id,
+            @PathVariable(value = "partyId") String partyId,
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid", required = false) String evseUid) {
         // push the updated locationDTO to the database
-        locationService.putEvse(evseVO, countryCode, party_id, locationId, evseUid);
+        locationService.putEvse(evseVO, countryCode, partyId, locationId, evseUid);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -132,12 +139,12 @@ public class NSPLocationController {
     public ResponseEntity<OcpiResponse<String>> putLocationEvseConnector(
             @RequestBody @Valid ConnectorDTO connectorVO,
             @PathVariable(value = "countryCode") String countryCode,
-            @PathVariable(value = "partyId") String party_id,
+            @PathVariable(value = "partyId") String partyId,
             @PathVariable(value = "locationId") String locationId,
             @PathVariable(value = "evseUid") String evseUid,
             @PathVariable(value = "connectorId") String connectorId) {
         // push the updated locationDTO to the database
-        locationService.putConnector(connectorVO, countryCode, party_id, locationId, evseUid, connectorId);
+        locationService.putConnector(connectorVO, countryCode, partyId, locationId, evseUid, connectorId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 
@@ -155,9 +162,9 @@ public class NSPLocationController {
             @RequestBody LocationDTO locationDTO,
 
             @PathVariable(value = "countryCode") String countryCode,
-            @PathVariable(value = "partyId") String party_id,
+            @PathVariable(value = "partyId") String partyId,
             @PathVariable(value = "locationId") String locationId) {
-        locationService.patchLocation(locationDTO, countryCode, party_id, locationId);
+        locationService.patchLocation(locationDTO, countryCode, partyId, locationId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }
 

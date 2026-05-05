@@ -1,19 +1,20 @@
 package com.banula.navigationservice.repository;
 
-import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
-import com.banula.openlib.mongodb.repository.OcpiCommonCompoundIndex;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import com.banula.openlib.mongodb.repository.OcpiCommonCompoundIndex;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
 
 public interface SmartLocationRepository
     extends MongoRepository<MongoSmartLocation, String>, OcpiCommonCompoundIndex<MongoSmartLocation> {
-  List<MongoSmartLocation> findByCountryCodeAndPartyId(String countryCode, String party_id);
+  List<MongoSmartLocation> findByCountryCodeAndPartyId(String countryCode, String partyId);
 
   Optional<MongoSmartLocation> findByMarketLocationId(String maloId);
 

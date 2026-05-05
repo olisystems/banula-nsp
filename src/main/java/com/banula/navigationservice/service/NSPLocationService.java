@@ -8,22 +8,22 @@ import com.banula.openlib.ocpi.model.dto.EvseDTO;
 import com.banula.openlib.ocpi.model.dto.LocationDTO;
 
 public interface NSPLocationService {
-        Object getLocationEvseConnector(String countryCode, String party_id, String locationId, String evseUid,
+        Object getLocationEvseConnector(String countryCode, String partyId, String locationId, String evseUid,
                         String connectorId);
 
         void putLocation(LocationDTO locationDTO, String countryCode, String partyId, String ocpiId);
 
-        void putEvse(EvseDTO evseVO, String countryCode, String party_id, String locationId, String evseUid);
+        void putEvse(EvseDTO evseVO, String countryCode, String partyId, String locationId, String evseUid);
 
-        void putConnector(ConnectorDTO connectorVO, String countryCode, String party_id, String locationId,
+        void putConnector(ConnectorDTO connectorVO, String countryCode, String partyId, String locationId,
                         String evseUid,
                         String connectorId);
 
         void patchLocation(LocationDTO locationDTO, String countryCode, String partyId, String locationId);
 
-        void patchEvse(EvseDTO evse, String countryCode, String party_id, String locationId, String evseUid);
+        void patchEvse(EvseDTO evse, String countryCode, String partyId, String locationId, String evseUid);
 
-        void patchConnector(ConnectorDTO connector, String countryCode, String party_id, String locationId,
+        void patchConnector(ConnectorDTO connector, String countryCode, String partyId, String locationId,
                         String evseUid,
                         String connectorId);
 

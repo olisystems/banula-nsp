@@ -13,11 +13,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
+import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
@@ -29,6 +28,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,6 +77,7 @@ public class NonOcpiSmartLocationController {
     @GetMapping("/{countryCode}/{partyId}/{locationId}")
     @LogRequest
     @CrossOrigin
+    @OcpiGetCompositeId
     public ResponseEntity<OcpiResponse<SmartLocationDTO>> getLocation(
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String party_id,
