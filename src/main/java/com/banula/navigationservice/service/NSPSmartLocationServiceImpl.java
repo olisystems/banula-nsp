@@ -1,28 +1,5 @@
 package com.banula.navigationservice.service;
 
-import com.banula.openlib.mongodb.util.GenericMongoMapper;
-import com.banula.navigationservice.dto.BulkImportResultDTO;
-import com.banula.navigationservice.model.MongoSmartLocation;
-import com.banula.navigationservice.repository.SmartLocationRepository;
-import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
-import com.banula.openlib.ocpi.custom.smartlocations.MeteringDataSource;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
-import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
-import com.banula.openlib.ocpi.exception.OCPICustomException;
-import com.banula.openlib.ocpi.util.Constants;
-import com.banula.openlib.ocpi.util.ModelPatcherUtil;
-
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.CSVRecord;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PushbackReader;
@@ -35,6 +12,29 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.banula.navigationservice.dto.BulkImportResultDTO;
+import com.banula.navigationservice.repository.SmartLocationRepository;
+import com.banula.openlib.mongodb.util.GenericMongoMapper;
+import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
+import com.banula.openlib.ocpi.custom.smartlocations.MeteringDataSource;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
+import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
+import com.banula.openlib.ocpi.exception.OCPICustomException;
+import com.banula.openlib.ocpi.util.Constants;
+import com.banula.openlib.ocpi.util.ModelPatcherUtil;
+
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -142,17 +142,20 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         // Validate that provided identifiers in the body match the path variables
         if (locationDTO.getId() != null && !locationDTO.getId().equals(locationId)) {
             throw new OCPICustomException(
-                    "Location ID in body '" + locationDTO.getId() + "' does not match path variable '" + locationId + "'",
+                    "Location ID in body '" + locationDTO.getId() + "' does not match path variable '" + locationId
+                            + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
         if (locationDTO.getCountryCode() != null && !locationDTO.getCountryCode().equals(countryCode)) {
             throw new OCPICustomException(
-                    "Country code in body '" + locationDTO.getCountryCode() + "' does not match path variable '" + countryCode + "'",
+                    "Country code in body '" + locationDTO.getCountryCode() + "' does not match path variable '"
+                            + countryCode + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
         if (locationDTO.getPartyId() != null && !locationDTO.getPartyId().equals(partyId)) {
             throw new OCPICustomException(
-                    "Party ID in body '" + locationDTO.getPartyId() + "' does not match path variable '" + partyId + "'",
+                    "Party ID in body '" + locationDTO.getPartyId() + "' does not match path variable '" + partyId
+                            + "'",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
 
@@ -362,12 +365,13 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
         try (CSVPrinter printer = new CSVPrinter(writer, format)) {
             if (isBlank(countryCode) || isBlank(partyId)) {
-                log.warn("generateImportTemplate called without countryCode/partyId filters; returning header-only template to avoid unbounded CSV generation");
+                log.warn(
+                        "generateImportTemplate called without countryCode/partyId filters; returning header-only template to avoid unbounded CSV generation");
                 return writer.toString();
             }
 
-            List<MongoSmartLocation> locations =
-                    smartLocationRepository.findByCountryCodeAndPartyId(countryCode, partyId);
+            List<MongoSmartLocation> locations = smartLocationRepository.findByCountryCodeAndPartyId(countryCode,
+                    partyId);
             for (MongoSmartLocation location : locations) {
                 DefaultSupplier supplier = location.getDefaultSupplier();
                 MeteringDataSource source = location.getMeteringDataSource();
