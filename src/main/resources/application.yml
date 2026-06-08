@@ -16,6 +16,7 @@ spring:
 
 api:
   role: NSP
+  ocpi-version: 2.2.1
   url: ${NSP_URL:}
   log-payload: ${NSP_LOG_PAYLOAD:false}
   zone-id: Europe/Berlin # current zone Id where the application is running
