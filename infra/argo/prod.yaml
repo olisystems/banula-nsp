@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: banula-navigation-service-prod
+  namespace: argocd
+  labels:
+    repo: banula-nsp
+spec:
+  project: banula
+  source:
+    repoURL: https://github.com/olisystems/banula-nsp.git
+    targetRevision: main
+    path: infra/helm
+    helm:
+      parameters:
+        - name: oli-app.image.tag
+          value: "main"
+      valueFiles:
+        - values.yaml
+        - values.prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: banula-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
