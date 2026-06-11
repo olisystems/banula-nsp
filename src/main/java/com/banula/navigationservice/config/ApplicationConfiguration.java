@@ -36,6 +36,12 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${platform.url}")
     private String platformUrl;
 
+    @Value("${platform.party-id}")
+    private String platformPartyId;
+
+    @Value("${platform.country-code}")
+    private String platformCountryCode;
+
     @Value("${remote-check.enabled:true}")
     private Boolean remoteCheckEnabled;
 

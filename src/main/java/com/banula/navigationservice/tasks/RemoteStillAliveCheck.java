@@ -1,28 +1,30 @@
 package com.banula.navigationservice.tasks;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.stereotype.Component;
+
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
-import com.banula.openlib.ocpi.platform.PlatformClient;
 import com.banula.navigationservice.service.NSPNotificationService;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.response.VersionResponseDTO;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.stereotype.Component;
 import com.banula.openlib.ocpi.model.enums.InterfaceRole;
 import com.banula.openlib.ocpi.model.enums.ModuleID;
-import java.util.Map;
+import com.banula.openlib.ocpi.platform.PlatformClient;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
@@ -72,8 +74,9 @@ public class RemoteStillAliveCheck implements Runnable {
             // Request the versions endpoint using Platform client
             CompletableFuture<OcpiResponse<List<VersionResponseDTO>>> future = CompletableFuture.supplyAsync(() -> {
                 try {
+                    String tenantId = applicationConfiguration.getPlatformCountryCode() + "_" + applicationConfiguration.getPlatformPartyId();
                     return platformClient.sendOutflowRequest(
-                            applicationConfiguration.getPlatformUrl(),
+                            tenantId,
                             party.getPartyId(),
                             party.getCountryCode(),
                             InterfaceRole.SENDER,
