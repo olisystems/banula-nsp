@@ -1,9 +1,11 @@
 package com.banula.navigationservice.tasks;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
 import com.banula.openlib.ocpi.platform.PlatformClient;
+import com.banula.navigationservice.service.NSPNotificationService;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.response.VersionResponseDTO;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
@@ -30,6 +32,7 @@ public class RemoteStillAliveCheck implements Runnable {
     private final HubClientInfoService hubClientInfoService;
     private final PlatformClient platformClient;
     private final ApplicationConfiguration applicationConfiguration;
+    private final NSPNotificationService nspNotificationService;
 
     @Override
     public void run() {
@@ -90,6 +93,13 @@ public class RemoteStillAliveCheck implements Runnable {
                     applicationConfiguration.getRemoteCheckTimeout(),
                     TimeUnit.MILLISECONDS);
 
+            HubClientInfoDTO.HubClientInfoDTOBuilder updatedPartyBuilder = HubClientInfoDTO.builder()
+                    .partyId(party.getPartyId())
+                    .countryCode(party.getCountryCode())
+                    .role(party.getRole())
+                    .lastUpdated(LocalDateTime.now(ZoneOffset.UTC));
+
+
             // If we get a successful response (status_code 1000), update the party status
             if (response != null &&
                     response.getStatus_code() == 1000 &&
@@ -99,28 +109,28 @@ public class RemoteStillAliveCheck implements Runnable {
                 log.info("Party {} ({}) is now online, updating status from PLANNED to CONNECTED",
                         party.getPartyId(), party.getCountryCode());
 
-                // Create updated party info with current timestamp
-                HubClientInfoDTO updatedParty = HubClientInfoDTO.builder()
-                        .partyId(party.getPartyId())
-                        .countryCode(party.getCountryCode())
-                        .role(party.getRole())
-                        .status(ConnectionStatus.CONNECTED) // Keep current status for now
-                        .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
-                        .build();
-
-                hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(
-                        party.getPartyId(),
-                        party.getCountryCode(),
-                        updatedParty);
+                updatedPartyBuilder.status(ConnectionStatus.CONNECTED);
             } else {
-                log.debug("Party {} ({}) is still offline",
+                log.debug("Party {} ({}) is offline",
                         party.getPartyId(), party.getCountryCode());
+                updatedPartyBuilder.status(ConnectionStatus.OFFLINE);
+            }
+
+            HubClientInfoDTO updatedParty = updatedPartyBuilder.build();
+            hubClientInfoService.updateHubClientInfoByPartyIdAndCountryCode(
+                    party.getPartyId(),
+                    party.getCountryCode(),
+                    updatedParty);
+
+            if(party.getStatus() != updatedParty.getStatus()) {
+                nspNotificationService.broadcastHubClientInfoUpdate(
+                        ClientInfoMapper.toMongoClientInfo(updatedParty)
+                );
             }
 
         } catch (Exception e) {
-            log.debug("Party {} ({}) is still offline: {}",
+            log.debug("Error trying to update party {} ({}): {}",
                     party.getPartyId(), party.getCountryCode(), e.getMessage());
-            // Party is still offline, no action needed
         }
     }
 
