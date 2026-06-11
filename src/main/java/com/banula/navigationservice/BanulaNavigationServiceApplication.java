@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
-@ComponentScan(basePackages = { "com.banula" })
+@ComponentScan(basePackages = { "com.banula.openlib", "com.olisystems.privatelib", "com.banula.navigationservice" })
 public class BanulaNavigationServiceApplication {
 
 	public static void main(String[] args) {

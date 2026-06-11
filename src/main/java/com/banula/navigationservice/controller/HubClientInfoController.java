@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
-@RequestMapping("${party.api-prefix}/2.2.1/hubclientinfo")
+@RequestMapping("/api/v1/internal/ocpi/2.2.1/hubclientinfo")
 @AllArgsConstructor
 @Slf4j
 public class HubClientInfoController {
@@ -29,13 +29,11 @@ public class HubClientInfoController {
   @GetMapping
   @LogRequest
   public ResponseEntity<OcpiResponse<List<HubClientInfoDTO>>> getPaginatedHubClientInfo(
-      @RequestParam(value = "date_from", required = false) 
-      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
-      @RequestParam(value = "date_to", required = false) 
-      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo,
+      @RequestParam(value = "date_from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+      @RequestParam(value = "date_to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo,
       @RequestParam(value = "offset", required = false, defaultValue = "0") Integer offset,
       @RequestParam(value = "limit", required = false, defaultValue = "50") Integer limit) {
-    
+
     List<HubClientInfoDTO> hubClientInfos = hubClientInfoService.getPaginatedHubClientInfos(
         dateFrom, dateTo, offset, limit);
     return ResponseEntity.ok(new OcpiResponse<>(hubClientInfos));

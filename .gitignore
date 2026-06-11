@@ -36,13 +36,16 @@ build/
 
 ### Node ###
 **/node_modules/
-frontend/node_modules
-frontend/dist
-frontend/dist-ssr
-frontend/node
-src/main/resources/static/*
 
-mvnw
-mvnw.cmd
+mvnw*
 .mvn
-**/application-local.yml
+
+
+# Local scripts
+
+
+#Mac specific files
+**/.DS_Store
+**/**/.DS_Store
+
+local

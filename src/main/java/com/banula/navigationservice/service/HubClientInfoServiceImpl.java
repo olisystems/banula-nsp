@@ -6,8 +6,7 @@ import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.MongoClientInfo;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.repository.HubClientInfoRepository;
-import com.banula.openlib.ocn.client.OcnClient;
-import com.banula.openlib.ocn.client.OcnEndpoints;
+import com.banula.openlib.ocpi.platform.PlatformClient;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
 
 import com.banula.openlib.ocpi.model.OcpiResponse;
@@ -15,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +26,9 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
+import com.banula.openlib.ocpi.model.enums.InterfaceRole;
+import com.banula.openlib.ocpi.model.enums.ModuleID;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -33,7 +36,7 @@ import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
 public class HubClientInfoServiceImpl implements HubClientInfoService {
 
   private final HubClientInfoRepository hubClientInfoRepository;
-  private final OcnClient ocnClient;
+  private final PlatformClient platformClient;
   private final MongoTemplate mongoTemplate;
   private final ApplicationConfiguration applicationConfiguration;
   private final MongoCollectionMapper mongoCollectionMapper;
@@ -103,7 +106,7 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       mongoClientInfo.setRole(clientInfoDTO.getRole());
     }
     mongoClientInfo.setStatus(clientInfoDTO.getStatus());
-    mongoClientInfo.setLastUpdated(LocalDateTime.now());
+    mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
     return ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
   }
 
@@ -117,23 +120,25 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       mongoClientInfo.setRole(clientInfoDTO.getRole());
     }
     mongoClientInfo.setStatus(clientInfoDTO.getStatus());
-    mongoClientInfo.setLastUpdated(LocalDateTime.now());
+    mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
     return ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
   }
 
   @Override
   public void syncAllHubClientInfoParties() {
-    String outflowUrl = applicationConfiguration.getPlatformUrl() + "/ocpi/outflow/ocpi/2.2.1/hubclientinfo";
     try {
-      OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = ocnClient.executeOcpiOperation(
-          outflowUrl,
-          null,
+      OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = platformClient.sendOutflowRequest(
+          applicationConfiguration.getPlatformUrl(),
           "OCN",
           "CH",
-          new ParameterizedTypeReference<>() {
-          },
+          InterfaceRole.SENDER,
+          ModuleID.HUB_CLIENT_INFO,
           HttpMethod.GET,
-          List.of());
+          null,
+          new ParameterizedTypeReference<OcpiResponse<List<HubClientInfoDTO>>>() {
+          },
+          List.of(),
+          Map.of());
 
       if (hubClientInfoParties.getStatus_code() > 2000) {
         throw new Exception(hubClientInfoParties.getStatus_message());
@@ -147,7 +152,6 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       log.warn("Initial HubClientInfo sync failed, NSP will start creating the list dynamically "
           + ex.getLocalizedMessage());
     }
-
   }
 
   @Override
