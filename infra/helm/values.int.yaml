@@ -1,9 +1,7 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-int"
-
   image:
-    tag: "main"
-
+    tag: "main-afb3e0a"
   ingress:
     hosts:
       - host: banula-int.oli-system.com
