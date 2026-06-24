@@ -1,21 +1,9 @@
 package com.banula.navigationservice.service;
 
-import com.banula.navigationservice.config.ApplicationConfiguration;
-import com.banula.navigationservice.config.MongoCollectionMapper;
-import com.banula.navigationservice.mapper.ClientInfoMapper;
-import com.banula.navigationservice.model.MongoClientInfo;
-import com.banula.navigationservice.model.dto.HubClientInfoDTO;
-import com.banula.navigationservice.repository.HubClientInfoRepository;
-import com.banula.openlib.ocpi.platform.PlatformClient;
-import com.banula.openlib.ocpi.exception.OCPICustomException;
-
-import com.banula.openlib.ocpi.model.OcpiResponse;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.core.ParameterizedTypeReference;
@@ -25,10 +13,22 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
+
+import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.config.MongoCollectionMapper;
+import com.banula.navigationservice.mapper.ClientInfoMapper;
+import com.banula.navigationservice.model.MongoClientInfo;
+import com.banula.navigationservice.model.dto.HubClientInfoDTO;
+import com.banula.navigationservice.repository.HubClientInfoRepository;
+import com.banula.openlib.ocpi.exception.OCPICustomException;
+import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
 import com.banula.openlib.ocpi.model.enums.InterfaceRole;
 import com.banula.openlib.ocpi.model.enums.ModuleID;
-import java.util.Map;
+import com.banula.openlib.ocpi.platform.PlatformClient;
+
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -127,8 +127,9 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   @Override
   public void syncAllHubClientInfoParties() {
     try {
+      String tenantId = applicationConfiguration.getPlatformCountryCode() + "_" + applicationConfiguration.getPlatformPartyId();
       OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = platformClient.sendOutflowRequest(
-          applicationConfiguration.getPlatformUrl(),
+          tenantId,
           "OCN",
           "CH",
           InterfaceRole.SENDER,

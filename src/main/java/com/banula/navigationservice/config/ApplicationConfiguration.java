@@ -1,28 +1,25 @@
 package com.banula.navigationservice.config;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.HashMap;
-
-import com.banula.openlib.ocn.model.OcnVersionDetails;
 import com.banula.openlib.ocpi.model.enums.Role;
+import com.banula.openlib.ocpi.model.enums.VersionNumber;
 import com.banula.openlib.ocpi.platform.PlatformConfiguration;
+
+import lombok.Data;
 
 @Configuration
 @EnableConfigurationProperties
-@Getter
-@Setter
+@Data
 public class ApplicationConfiguration implements PlatformConfiguration {
 
     @Value("${api.url}")
     private String partyUrl;
 
     @Value("${api.role}")
-    private Role role;
+    private Role ocpiRole;
 
     @Value("${api.command-timeout}")
     private Integer commandTimeout;
@@ -39,6 +36,12 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${platform.url}")
     private String platformUrl;
 
+    @Value("${platform.party-id}")
+    private String platformPartyId;
+
+    @Value("${platform.country-code}")
+    private String platformCountryCode;
+
     @Value("${remote-check.enabled:true}")
     private Boolean remoteCheckEnabled;
 
@@ -48,16 +51,15 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${remote-check.timeout:10000}")
     private Long remoteCheckTimeout;
 
-    private HashMap<String, OcnVersionDetails> ocnVersionDetails;
-
     @Override
-    public void setOcnVersionDetails(String tenantId, OcnVersionDetails _ocnVersionDetails) {
-        if (this.ocnVersionDetails == null) {
-            this.ocnVersionDetails = new HashMap<String, OcnVersionDetails>();
-        }
-        this.ocnVersionDetails.put(tenantId, _ocnVersionDetails);
+    public VersionNumber getOcpiVersion() {
+        return VersionNumber.fromValue(ocpiVersion);
     }
+    
+    @Value("${api.ocpi-version}")
+    private String ocpiVersion;
 
+   
     public boolean isToLogCurlCommands() {
         return logCurlCommand;
     }
