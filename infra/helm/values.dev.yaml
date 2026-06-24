@@ -1,7 +1,7 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-dev"
   image:
-    tag: "develop-97532de"
+    tag: "develop-642bf4f"
   ingress:
     hosts:
       - host: banula-dev.oli-system.com
