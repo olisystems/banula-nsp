@@ -36,6 +36,7 @@ remote-check:
   timeout: ${REMOTE_CHECK_TIMEOUT:15000} # 15 seconds timeout
 
 springdoc:
+  writer-with-order-by-keys: true
   swagger-ui:
     path: /swagger-ui
     enabled: ${SWAGGER_ENABLED:true}
