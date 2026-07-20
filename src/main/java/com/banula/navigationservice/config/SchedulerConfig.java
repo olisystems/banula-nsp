@@ -1,5 +1,6 @@
 package com.banula.navigationservice.config;
 
+import com.banula.navigationservice.tasks.LocationSyncTask;
 import com.banula.navigationservice.tasks.RemoteStillAliveCheck;
 import com.banula.navigationservice.tasks.SmartLocationActiveStateCheck;
 import lombok.AllArgsConstructor;
@@ -16,6 +17,7 @@ public class SchedulerConfig {
 
     private final RemoteStillAliveCheck remoteStillAliveCheck;
     private final SmartLocationActiveStateCheck smartLocationActiveStateCheck;
+    private final LocationSyncTask locationSyncTask;
     private final ApplicationConfiguration applicationConfiguration;
 
     /**
@@ -28,7 +30,7 @@ public class SchedulerConfig {
             log.debug("Remote still alive check is disabled");
             return;
         }
-        
+
         log.debug("Executing scheduled remote still alive check");
         try {
             remoteStillAliveCheck.run();
@@ -58,6 +60,25 @@ public class SchedulerConfig {
             smartLocationActiveStateCheck.run();
         } catch (Exception e) {
             log.error("Error executing scheduled smart location active state check: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Pull recent location updates from connected CPOs and publish them through the
+     * configured hub for distribution. Default: every hour.
+     */
+    @Scheduled(fixedRateString = "${location-sync.interval:3600000}")
+    public void scheduleLocationSync() {
+        if (!Boolean.TRUE.equals(applicationConfiguration.getLocationSyncEnabled())) {
+            log.debug("Location sync is disabled");
+            return;
+        }
+
+        log.debug("Executing scheduled location sync");
+        try {
+            locationSyncTask.run();
+        } catch (Exception e) {
+            log.error("Error executing scheduled location sync: {}", e.getMessage(), e);
         }
     }
 }

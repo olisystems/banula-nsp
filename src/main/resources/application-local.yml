@@ -16,5 +16,11 @@ platform:
   party-id: BAN
   country-code: DE
 
+location-sync:
+  enabled: true
+  interval: 3600000
+  lookback-hours: 1
+  welcome-lookback-days: 3650
+
 api:
   url: http://localhost:8085
