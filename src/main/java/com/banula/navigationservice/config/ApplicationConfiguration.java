@@ -79,4 +79,13 @@ public class ApplicationConfiguration implements PlatformConfiguration {
         return logCurlCommand;
     }
 
+    /** OCPI-from tenant for platform outflow calls (e.g. DE_BAN). */
+    public String getPlatformTenantId() {
+        if (platformCountryCode == null || platformCountryCode.isBlank()
+                || platformPartyId == null || platformPartyId.isBlank()) {
+            return null;
+        }
+        return platformCountryCode.trim().toUpperCase() + "_" + platformPartyId.trim().toUpperCase();
+    }
+
 }

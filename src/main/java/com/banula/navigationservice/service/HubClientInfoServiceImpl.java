@@ -148,11 +148,18 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   @Override
   public void syncAllHubClientInfoParties() {
     try {
-      String tenantId = applicationConfiguration.getPlatformCountryCode() + "_" + applicationConfiguration.getPlatformPartyId();
+      String hubCountryCode = applicationConfiguration.getPlatformCountryCode();
+      String hubPartyId = applicationConfiguration.getPlatformPartyId();
+      if (hubCountryCode == null || hubCountryCode.isBlank() || hubPartyId == null || hubPartyId.isBlank()) {
+        log.warn("Skipping HubClientInfo sync: platform.country-code / platform.party-id not configured");
+        return;
+      }
+
+      String tenantId = applicationConfiguration.getPlatformTenantId();
       OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = platformClient.sendOutflowRequest(
           tenantId,
-          "OCN",
-          "CH",
+          hubPartyId,
+          hubCountryCode,
           InterfaceRole.SENDER,
           ModuleID.HUB_CLIENT_INFO,
           HttpMethod.GET,

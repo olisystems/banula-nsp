@@ -37,6 +37,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     private final SmartLocationRepository smartLocationRepository;
     private final MongoCollectionMapper mongoCollectionMapper;
     private final GenericMongoMapper genericMongoMapper;
+    private final GenericMapper genericMapper;
 
     // returns either LocationDTO or EVSE or Connector object
     @Override
@@ -129,7 +130,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
 
         // add the new evse to the ArrayList of evses in the Location and register
         // location
-        locationDTO.getEvses().add(evseVO);
+        locationDTO.getEvses().add(genericMapper.evseToDTO(evseVO));
         putLocation(locationDTO, countryCode, party_id, locationId);
     }
 
