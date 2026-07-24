@@ -69,6 +69,12 @@ public class LocationSyncServiceImpl implements LocationSyncService {
     @Override
     public void pullStoreAndBroadcast(String countryCode, String partyId, LocalDateTime dateFrom,
             LocalDateTime dateTo) {
+        if (applicationConfiguration.getPlatformTenantId() == null) {
+            log.warn("Skipping location sync for {}/{}: platform hub identity is not configured", countryCode,
+                    partyId);
+            return;
+        }
+
         List<LocationDTO> locations = nspPlatformClient.getLocations(countryCode, partyId, dateFrom, dateTo);
         if (locations == null || locations.isEmpty()) {
             log.info("No locations returned from {}/{} for window {} -> {}", countryCode, partyId, dateFrom, dateTo);
@@ -79,6 +85,11 @@ public class LocationSyncServiceImpl implements LocationSyncService {
                 locations.size(), countryCode, partyId);
         for (LocationDTO location : locations) {
             ensureOwner(location, countryCode, partyId);
+            if (!sameParty(location.getCountryCode(), location.getPartyId(), countryCode, partyId)) {
+                log.warn("Ignoring location {} with unexpected owner {}/{} from {}/{}",
+                        location.getId(), location.getCountryCode(), location.getPartyId(), countryCode, partyId);
+                continue;
+            }
             try {
                 locationService.putLocation(location, location.getCountryCode(), location.getPartyId(),
                         location.getId());
