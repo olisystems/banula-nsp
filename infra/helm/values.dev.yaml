@@ -2,14 +2,6 @@ oli-app:
   fullnameOverride: "banula-navigation-service-dev"
   image:
     tag: "develop-5fb60e4"
+  # nginx ingress disabled — service is cluster-internal only now.
   ingress:
-    hosts:
-      - host: banula-dev.oli-system.com
-    tls:
-      - secretName: banula-dev-tls
-        hosts:
-          - banula-dev.oli-system.com
-    features:
-      router:
-        routes:
-          exposeAll: true
+    enabled: false
