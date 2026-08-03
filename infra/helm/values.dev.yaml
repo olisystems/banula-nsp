@@ -2,6 +2,3 @@ oli-app:
   fullnameOverride: "banula-navigation-service-dev"
   image:
     tag: "develop-5fb60e4"
-  # nginx ingress disabled — service is cluster-internal only now.
-  ingress:
-    enabled: false
