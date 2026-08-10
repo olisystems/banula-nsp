@@ -96,8 +96,8 @@ oli-app:
       memory: 512Mi
       cpu: 500m
 
-  livenessProbe: {}
-  readinessProbe: {}
+  livenessProbe: ~
+  readinessProbe: ~
 
   autoscaling:
     enabled: true

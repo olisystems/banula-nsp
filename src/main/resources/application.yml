@@ -16,6 +16,7 @@ spring:
 
 api:
   role: NSP
+  ocpi-version: 2.2.1
   url: ${NSP_URL:}
   log-payload: ${NSP_LOG_PAYLOAD:false}
   zone-id: Europe/Berlin # current zone Id where the application is running
@@ -35,6 +36,7 @@ remote-check:
   timeout: ${REMOTE_CHECK_TIMEOUT:15000} # 15 seconds timeout
 
 springdoc:
+  writer-with-order-by-keys: true
   swagger-ui:
     path: /swagger-ui
     enabled: ${SWAGGER_ENABLED:true}

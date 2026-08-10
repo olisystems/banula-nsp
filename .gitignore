@@ -33,6 +33,7 @@ build/
 
 ### VS Code ###
 .vscode/
+.devin/
 
 ### Node ###
 **/node_modules/
