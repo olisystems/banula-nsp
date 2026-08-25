@@ -25,4 +25,14 @@ public interface NSPSmartLocationService {
         BulkImportResultDTO bulkImport(MultipartFile file);
 
         String generateImportTemplate(String countryCode, String partyId);
+
+        /**
+         * Re-evaluates every VERIFIED/ACTIVE smart location against today's date in
+         * the configured zone, promoting those whose activation window covers today
+         * and demoting those whose window has passed. Idempotent: a second run in the
+         * same day changes nothing.
+         *
+         * @return the number of locations whose state actually changed
+         */
+        int refreshActiveStates();
 }
