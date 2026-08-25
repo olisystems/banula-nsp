@@ -1,15 +1,5 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-int"
+
   image:
-    tag: "main-a2a6758"
-  ingress:
-    hosts:
-      - host: banula-int.oli-system.com
-    tls:
-      - secretName: banula-int-tls
-        hosts:
-          - banula-int.oli-system.com
-    features:
-      router:
-        routes:
-          exposeAll: true
+    tag: "main"

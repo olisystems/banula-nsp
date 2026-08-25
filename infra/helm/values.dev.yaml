@@ -1,15 +1,4 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-dev"
   image:
-    tag: "develop-865c5c7"
-  ingress:
-    hosts:
-      - host: banula-dev.oli-system.com
-    tls:
-      - secretName: banula-dev-tls
-        hosts:
-          - banula-dev.oli-system.com
-    features:
-      router:
-        routes:
-          exposeAll: true
+    tag: "develop-e551710"
