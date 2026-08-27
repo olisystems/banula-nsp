@@ -1,4 +1,2 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-dev"
-  image:
-    tag: "develop-e551710"

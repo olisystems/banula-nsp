@@ -1,5 +1,2 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-int"
-
-  image:
-    tag: "main"
