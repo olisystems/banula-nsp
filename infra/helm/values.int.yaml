@@ -1,4 +1,2 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-int"
-  image:
-    tag: "main-9fc904f"
