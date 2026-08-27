@@ -146,7 +146,7 @@ public class NonOcpiSmartLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
     }
 
-    @Operation(summary = "Re-evaluate smart location active states", description = "Runs the same evaluation as the daily 00:00:05 Europe/Berlin job: every VERIFIED location whose activation window covers today becomes ACTIVE, and every ACTIVE location whose window has passed returns to VERIFIED. Idempotent — running it twice in the same day changes nothing. Returns the number of locations whose state actually changed.")
+    @Operation(summary = "Re-evaluate smart location active states", description = "Runs the same evaluation as the daily 00:00:05 job in the configured api.zone-id time zone: every VERIFIED location whose activation window covers today becomes ACTIVE, and every ACTIVE location whose window has passed returns to VERIFIED. Idempotent — running it twice in the same day changes nothing. Returns the number of locations whose state actually changed.")
     @PostMapping("/refresh-active-states")
     @LogRequest
     @CrossOrigin
