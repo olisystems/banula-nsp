@@ -54,6 +54,18 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${active-state-check.enabled:true}")
     private Boolean activeStateCheckEnabled;
 
+    @Value("${location-sync.enabled:true}")
+    private Boolean locationSyncEnabled;
+
+    @Value("${location-sync.interval:3600000}")
+    private Long locationSyncInterval;
+
+    @Value("${location-sync.lookback-hours:1}")
+    private Long locationSyncLookbackHours;
+
+    @Value("${location-sync.welcome-lookback-days:3650}")
+    private Long locationSyncWelcomeLookbackDays;
+
     @Override
     public VersionNumber getOcpiVersion() {
         return VersionNumber.fromValue(ocpiVersion);
@@ -65,6 +77,15 @@ public class ApplicationConfiguration implements PlatformConfiguration {
    
     public boolean isToLogCurlCommands() {
         return logCurlCommand;
+    }
+
+    /** OCPI-from tenant for platform outflow calls (e.g. DE_BAN). */
+    public String getPlatformTenantId() {
+        if (platformCountryCode == null || platformCountryCode.isBlank()
+                || platformPartyId == null || platformPartyId.isBlank()) {
+            return null;
+        }
+        return platformCountryCode.trim().toUpperCase() + "_" + platformPartyId.trim().toUpperCase();
     }
 
 }
