@@ -1,6 +1,7 @@
 package com.banula.navigationservice.repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,6 +11,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
 import com.banula.openlib.mongodb.repository.OcpiCommonCompoundIndex;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
 
 public interface SmartLocationRepository
@@ -19,23 +21,29 @@ public interface SmartLocationRepository
   Optional<MongoSmartLocation> findByMarketLocationId(String maloId);
 
   /**
-   * Find verified smart locations with optional date range filtering and
+   * Find active smart locations with optional date range filtering and
    * pagination.
-   * Behaves like LocationUtility.findLocations but filters for verified
-   * locations only.
+   * Behaves like LocationUtility.findLocations but filters for active
+   * locations only — i.e. those whose activation window covers today.
    * 
    * @param dateFrom Only return locations with lastUpdated >= dateFrom (if not
    *                 null)
    * @param dateTo   Only return locations with lastUpdated <= dateTo (if not
    *                 null)
    * @param pageable Pagination parameters (offset and limit)
-   * @return Page of verified MongoSmartLocation entities
+   * @return Page of active MongoSmartLocation entities
    */
-  @Query("{ 'smartLocationState': 'VERIFIED'" +
+  @Query("{ 'smartLocationState': 'ACTIVE'" +
       ", $and: [" +
       "  { $or: [ { 'lastUpdated': { $gte: ?0 } }, { $expr: { $eq: [?0, null] } } ] }" +
       ", { $or: [ { 'lastUpdated': { $lte: ?1 } }, { $expr: { $eq: [?1, null] } } ] }" +
       "] }")
-  Page<MongoSmartLocation> findVerifiedSmartLocations(LocalDateTime dateFrom, LocalDateTime dateTo, Pageable pageable);
+  Page<MongoSmartLocation> findActiveSmartLocations(LocalDateTime dateFrom, LocalDateTime dateTo, Pageable pageable);
+
+  /**
+   * Find every smart location currently in one of the given states — used to load
+   * the VERIFIED/ACTIVE candidates for the daily activation-window evaluation.
+   */
+  List<MongoSmartLocation> findBySmartLocationStateIn(Collection<SmartLocationState> states);
 
 }

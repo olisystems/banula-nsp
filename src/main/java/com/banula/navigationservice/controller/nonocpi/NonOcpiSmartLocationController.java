@@ -117,7 +117,10 @@ public class NonOcpiSmartLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
     }
 
-    @Operation(summary = "Partially update a smart location", description = "Updates specific fields of a smart location identified by country code, party ID, and location ID")
+    @Operation(summary = "Partially update a smart location", description = "Updates specific fields of a smart location identified by country code, party ID, and location ID. "
+            + "Sending an activation window (active_first_day / active_last_day) sets it; the window can never be cleared by sending nulls, "
+            + "because only non-null fields are copied. Sending smart_location_state instead clears both window days. "
+            + "ACTIVE is rejected: it is derived from the window, never set by hand.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Location successfully updated", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Location not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class)))
@@ -141,6 +144,14 @@ public class NonOcpiSmartLocationController {
         }
 
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
+    }
+
+    @Operation(summary = "Re-evaluate smart location active states", description = "Runs the same evaluation as the daily 00:00:05 job in the configured api.zone-id time zone: every VERIFIED location whose activation window covers today becomes ACTIVE, and every ACTIVE location whose window has passed returns to VERIFIED. Idempotent — running it twice in the same day changes nothing. Returns the number of locations whose state actually changed.")
+    @PostMapping("/refresh-active-states")
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<Integer>> refreshActiveStates() {
+        return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.refreshActiveStates()));
     }
 
     @Operation(summary = "Bulk import smart locations from CSV", description = "Enriches existing locations using a CSV file. Each row is patched independently; rows that fail are reported in the response.")

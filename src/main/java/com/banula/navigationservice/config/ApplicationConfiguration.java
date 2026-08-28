@@ -51,6 +51,9 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${remote-check.timeout:10000}")
     private Long remoteCheckTimeout;
 
+    @Value("${active-state-check.enabled:true}")
+    private Boolean activeStateCheckEnabled;
+
     @Override
     public VersionNumber getOcpiVersion() {
         return VersionNumber.fromValue(ocpiVersion);
