@@ -1,4 +1,4 @@
 # THIS FILE IS MANAGED BY ARGO + GITHUB ACTIONS
 oli-app:
   image:
-    tag: "main-20588e7"
+    tag: "main-8ceb74b"
