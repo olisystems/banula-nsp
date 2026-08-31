@@ -45,16 +45,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
         // Public read path: only ACTIVE locations may be served to other parties.
         // A non-active location must be indistinguishable from a missing one —
         // answering "exists but not active" leaks information to a counterparty.
-        if (!isPubliclyServable(countryCode, partyId, locationId)) {
-            throw new OCPICustomException("Location not found");
-        }
-        return getLocationEvseConnectorInternal(countryCode, partyId, locationId, evseUid, connectorId);
-    }
-
-    private boolean isPubliclyServable(String countryCode, String partyId, String locationId) {
-        return smartLocationRepository.findByCompoundIndex(countryCode, partyId, locationId)
-                .map(location -> SmartLocationActivationUtil.isPubliclyServable(location.getSmartLocationState()))
-                .orElse(false);
+        return getLocationEvseConnectorInternal(countryCode, partyId, locationId, evseUid, connectorId, true);
     }
 
     /**
@@ -64,9 +55,23 @@ public class NSPLocationServiceImpl implements NSPLocationService {
      */
     private Object getLocationEvseConnectorInternal(String countryCode, String partyId, String locationId,
             String evseUid, String connectorId) {
+        return getLocationEvseConnectorInternal(countryCode, partyId, locationId, evseUid, connectorId, false);
+    }
+
+    /**
+     * @param publicOnly when true, a location that is not publicly servable is
+     *                   reported as missing — the single lookup below serves both
+     *                   the state gate and the EVSE/connector extraction.
+     */
+    private Object getLocationEvseConnectorInternal(String countryCode, String partyId, String locationId,
+            String evseUid, String connectorId, boolean publicOnly) {
         try {
             Optional<MongoSmartLocation> locationOpt = smartLocationRepository
                     .findByCompoundIndex(countryCode, partyId, locationId);
+            if (publicOnly) {
+                locationOpt = locationOpt.filter(candidate -> SmartLocationActivationUtil
+                        .isPubliclyServable(candidate.getSmartLocationState()));
+            }
             if (locationOpt.isEmpty()) {
                 throw new OCPICustomException("Location not found");
             }
