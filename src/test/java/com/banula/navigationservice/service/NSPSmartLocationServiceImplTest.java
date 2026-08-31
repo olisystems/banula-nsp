@@ -136,13 +136,13 @@ class NSPSmartLocationServiceImplTest {
     }
 
     @Test
-    void refreshActiveStates_shouldKeepArchived_whenItHasNoWindow() {
+    void refreshActiveStates_shouldDropArchivedToVerified_whenItHasNoWindow() {
         MongoSmartLocation location = mongoLocation(SmartLocationState.ARCHIVED, null, null);
         stubCandidates(location);
+        stubToMongoIdentity();
 
-        assertEquals(0, service.refreshActiveStates());
-        assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
-        verify(smartLocationRepository, never()).save(any(MongoSmartLocation.class));
+        assertEquals(1, service.refreshActiveStates());
+        assertEquals(SmartLocationState.VERIFIED, location.getSmartLocationState());
     }
 
     @Test
@@ -179,6 +179,18 @@ class NSPSmartLocationServiceImplTest {
     }
 
     // ---------- patchSmartLocation ----------
+
+    @Test
+    void patchSmartLocation_shouldRejectManuallySentArchivedState() {
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setSmartLocationState(SmartLocationState.ARCHIVED);
+
+        OCPICustomException exception = assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertTrue(exception.getMessage().contains("ARCHIVED cannot be set directly"));
+        verify(smartLocationRepository, never()).save(any(MongoSmartLocation.class));
+    }
 
     @Test
     void patchSmartLocation_shouldRejectManuallySentActiveState() {

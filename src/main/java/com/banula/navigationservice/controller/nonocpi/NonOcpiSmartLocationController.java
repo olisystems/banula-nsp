@@ -125,7 +125,7 @@ public class NonOcpiSmartLocationController {
             + "Sending a day explicitly as null clears it, which is how a mistakenly entered active_last_day is removed — the location then leaves ARCHIVED and becomes ACTIVE again "
             + "when its first day is today or earlier. Sending smart_location_state without any window day still clears both days. "
             + "active_last_day must not be before active_first_day, and cannot be set without one. "
-            + "ACTIVE is rejected: it is derived from the window, never set by hand.")
+            + "ACTIVE and ARCHIVED are rejected: both are derived from the window, never set by hand.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Location successfully updated", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class))),
             @ApiResponse(responseCode = "404", description = "Location not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class)))

@@ -76,10 +76,12 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         try {
             validateAndPopulateLocationIdentifiers(smartLocationDTO, countryCode, partyId, id);
 
-            // ACTIVE is never assigned by hand — it is derived from the activation window.
-            if (smartLocationDTO.getSmartLocationState() == SmartLocationState.ACTIVE) {
+            // ACTIVE and ARCHIVED are never assigned by hand — both are derived from
+            // the activation window and nothing else.
+            SmartLocationState requestedState = smartLocationDTO.getSmartLocationState();
+            if (requestedState == SmartLocationState.ACTIVE || requestedState == SmartLocationState.ARCHIVED) {
                 throw new OCPICustomException(
-                        "ACTIVE cannot be set directly; define an activation window instead",
+                        requestedState + " cannot be set directly; define an activation window instead",
                         Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
             }
 
