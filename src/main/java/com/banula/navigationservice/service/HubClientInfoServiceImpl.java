@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.config.MongoCollectionMapper;
+import com.banula.navigationservice.event.PartyConnectedEvent;
 import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.MongoClientInfo;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
@@ -40,6 +42,7 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   private final MongoTemplate mongoTemplate;
   private final ApplicationConfiguration applicationConfiguration;
   private final MongoCollectionMapper mongoCollectionMapper;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Override
   public List<HubClientInfoDTO> getPaginatedHubClientInfos(LocalDateTime dateFrom, LocalDateTime dateTo, Integer offset,
@@ -99,6 +102,7 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       HubClientInfoDTO clientInfoDTO) {
     MongoClientInfo mongoClientInfo = hubClientInfoRepository
         .findByPartyIdAndCountryCodeAndRole(partyId, countryCode, clientInfoDTO.getRole()).orElse(null);
+    ConnectionStatus previousStatus = mongoClientInfo != null ? mongoClientInfo.getStatus() : null;
     if (mongoClientInfo == null) {
       mongoClientInfo = new MongoClientInfo();
       mongoClientInfo.setPartyId(partyId);
@@ -107,12 +111,15 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
     }
     mongoClientInfo.setStatus(clientInfoDTO.getStatus());
     mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
-    return ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
+    HubClientInfoDTO saved = ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
+    publishConnectedIfTransition(previousStatus, saved);
+    return saved;
   }
 
   public HubClientInfoDTO updateHubClientInfo(HubClientInfoDTO clientInfoDTO) {
     MongoClientInfo mongoClientInfo = hubClientInfoRepository.findByPartyIdAndCountryCodeAndRole(
         clientInfoDTO.getPartyId(), clientInfoDTO.getCountryCode(), clientInfoDTO.getRole()).orElse(null);
+    ConnectionStatus previousStatus = mongoClientInfo != null ? mongoClientInfo.getStatus() : null;
     if (mongoClientInfo == null) {
       mongoClientInfo = new MongoClientInfo();
       mongoClientInfo.setPartyId(clientInfoDTO.getPartyId());
@@ -121,17 +128,38 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
     }
     mongoClientInfo.setStatus(clientInfoDTO.getStatus());
     mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
-    return ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
+    HubClientInfoDTO saved = ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
+    publishConnectedIfTransition(previousStatus, saved);
+    return saved;
+  }
+
+  private void publishConnectedIfTransition(ConnectionStatus previousStatus, HubClientInfoDTO saved) {
+    if (saved.getStatus() != ConnectionStatus.CONNECTED) {
+      return;
+    }
+    if (previousStatus == ConnectionStatus.CONNECTED) {
+      return;
+    }
+    log.info("Party {}/{} ({}) became CONNECTED; publishing welcome event", saved.getCountryCode(),
+        saved.getPartyId(), saved.getRole());
+    eventPublisher.publishEvent(new PartyConnectedEvent(this, saved));
   }
 
   @Override
   public void syncAllHubClientInfoParties() {
     try {
-      String tenantId = applicationConfiguration.getPlatformCountryCode() + "_" + applicationConfiguration.getPlatformPartyId();
+      String hubCountryCode = applicationConfiguration.getPlatformCountryCode();
+      String hubPartyId = applicationConfiguration.getPlatformPartyId();
+      if (hubCountryCode == null || hubCountryCode.isBlank() || hubPartyId == null || hubPartyId.isBlank()) {
+        log.warn("Skipping HubClientInfo sync: platform.country-code / platform.party-id not configured");
+        return;
+      }
+
+      String tenantId = applicationConfiguration.getPlatformTenantId();
       OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = platformClient.sendOutflowRequest(
           tenantId,
-          "OCN",
-          "CH",
+          hubPartyId,
+          hubCountryCode,
           InterfaceRole.SENDER,
           ModuleID.HUB_CLIENT_INFO,
           HttpMethod.GET,

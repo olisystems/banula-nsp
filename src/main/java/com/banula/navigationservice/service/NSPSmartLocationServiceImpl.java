@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.io.PushbackReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.dto.BulkImportResultDTO;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
@@ -29,6 +31,7 @@ import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.util.SmartLocationActivationUtil;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
 import com.banula.openlib.ocpi.util.Constants;
 import com.banula.openlib.ocpi.util.ModelPatcherUtil;
@@ -43,6 +46,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
     private final SmartLocationRepository smartLocationRepository;
     private final GenericMongoMapper genericMongoMapper;
+    private final ApplicationConfiguration applicationConfiguration;
 
     @Override
     public List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId) {
@@ -66,6 +70,13 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         try {
             validateAndPopulateLocationIdentifiers(smartLocationDTO, countryCode, partyId, id);
 
+            // ACTIVE is never assigned by hand — it is derived from the activation window.
+            if (smartLocationDTO.getSmartLocationState() == SmartLocationState.ACTIVE) {
+                throw new OCPICustomException(
+                        "ACTIVE cannot be set directly; define an activation window instead",
+                        Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+            }
+
             // update Last Updated field
             smartLocationDTO.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
 
@@ -82,21 +93,23 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             // MongoSmartLocation extends SmartLocation, so we can cast directly
             SmartLocation existingEntity = existingMongoSmartLocation;
 
-            // Handle smartLocationState from DTO
-            if (smartLocationDTO.getSmartLocationState() != null) {
-                existingEntity.setSmartLocationState(smartLocationDTO.getSmartLocationState());
-            }
+            boolean stateRequested = smartLocationDTO.getSmartLocationState() != null;
 
-            // Set publish = true when state is set to VERIFIED
-            if (existingEntity.getSmartLocationState() == SmartLocationState.VERIFIED) {
-                existingEntity.setPublish(true);
-            } else {
-                existingEntity.setPublish(false);
+            // Handle smartLocationState from DTO
+            if (stateRequested) {
+                existingEntity.setSmartLocationState(smartLocationDTO.getSmartLocationState());
             }
 
             // Patch the existing location with the new data
             ModelPatcherUtil.smartLocationPatcher(existingEntity,
                     incompleteEntity);
+
+            // Choosing a state explicitly clears the activation window: the patcher copies
+            // non-null values only and can therefore never clear a field on its own.
+            if (stateRequested) {
+                existingEntity.setActiveFirstDay(null);
+                existingEntity.setActiveLastDay(null);
+            }
 
             // Automatically set state to ENRICHED if it's currently PLAIN_OCPI and all
             // required smart fields are present
@@ -106,13 +119,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
                 existingEntity.setSmartLocationState(SmartLocationState.ENRICHED);
             }
 
-            // Convert to MongoSmartLocation with smart upsert (will find and preserve
-            // existing _id)
-            MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(existingEntity,
-                    MongoSmartLocation.class);
-            smartLocationRepository.save(mongoSmartLocation);
-            SmartLocationDTO smartLocationDTOResponse = genericMongoMapper.toDTO(existingEntity,
-                    SmartLocationDTO.class);
+            SmartLocationDTO smartLocationDTOResponse = evaluateAndSave(existingEntity);
             log.info("Patched location with ID: {}", smartLocationDTOResponse.getId());
             return smartLocationDTOResponse;
 
@@ -397,5 +404,45 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         }
 
         return writer.toString();
+    }
+
+    @Override
+    public int refreshActiveStates() {
+        LocalDate today = SmartLocationActivationUtil.today(applicationConfiguration.getZoneId());
+        List<MongoSmartLocation> candidates = smartLocationRepository.findBySmartLocationStateIn(
+                List.of(SmartLocationState.VERIFIED, SmartLocationState.ACTIVE));
+
+        int changed = 0;
+        for (MongoSmartLocation candidate : candidates) {
+            // Save only when the state actually changed: findActiveSmartLocations filters
+            // on lastUpdated, the cursor OCPI clients page on, so touching every row
+            // nightly would make every location look updated to every roaming partner.
+            if (SmartLocationActivationUtil.applyActiveState(candidate, today)) {
+                publishStampAndSave(candidate);
+                changed++;
+            }
+        }
+
+        log.info("Refreshed smart location active states for {} ({} candidate(s), {} changed)", today,
+                candidates.size(), changed);
+        return changed;
+    }
+
+    /**
+     * Shared tail of every write path: evaluate the activation window, align the
+     * publish flag, stamp lastUpdated, persist, and map the result to a DTO.
+     */
+    private SmartLocationDTO evaluateAndSave(SmartLocation entity) {
+        SmartLocationActivationUtil.applyActiveState(entity,
+                SmartLocationActivationUtil.today(applicationConfiguration.getZoneId()));
+        publishStampAndSave(entity);
+        return genericMongoMapper.toDTO(entity, SmartLocationDTO.class);
+    }
+
+    private void publishStampAndSave(SmartLocation entity) {
+        entity.setPublish(SmartLocationActivationUtil.isPubliclyServable(entity.getSmartLocationState()));
+        entity.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
+        // Smart upsert: finds and preserves the existing _id.
+        smartLocationRepository.save(genericMongoMapper.toMongo(entity, MongoSmartLocation.class));
     }
 }

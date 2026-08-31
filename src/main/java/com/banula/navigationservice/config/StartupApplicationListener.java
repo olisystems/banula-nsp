@@ -10,7 +10,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
-import com.banula.openlib.ocpi.platform.PlatformClient;
 import com.banula.openlib.ocpi.util.InfoUtils;
 
 @Component
@@ -18,7 +17,6 @@ import com.banula.openlib.ocpi.util.InfoUtils;
 @Slf4j
 public class StartupApplicationListener implements ApplicationListener<ApplicationReadyEvent> {
     private final ApplicationConfiguration applicationConfiguration;
-    private final PlatformClient platformClient;
     private final HubClientInfoService hubClientInfoService;
 
     @Override

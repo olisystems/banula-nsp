@@ -14,6 +14,7 @@ import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.util.SmartLocationActivationUtil;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
 import com.banula.openlib.ocpi.model.Location;
 import com.banula.openlib.ocpi.model.dto.ConnectorDTO;
@@ -41,9 +42,36 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     @Override
     public Object getLocationEvseConnector(String countryCode, String partyId, String locationId, String evseUid,
             String connectorId) {
+        // Public read path: only ACTIVE locations may be served to other parties.
+        // A non-active location must be indistinguishable from a missing one —
+        // answering "exists but not active" leaks information to a counterparty.
+        return getLocationEvseConnectorInternal(countryCode, partyId, locationId, evseUid, connectorId, true);
+    }
+
+    /**
+     * Un-gated read used by the OCPI receiver write paths (putEvse, patchEvse,
+     * putConnector), which must keep working for locations that are not currently
+     * served to other parties.
+     */
+    private Object getLocationEvseConnectorInternal(String countryCode, String partyId, String locationId,
+            String evseUid, String connectorId) {
+        return getLocationEvseConnectorInternal(countryCode, partyId, locationId, evseUid, connectorId, false);
+    }
+
+    /**
+     * @param publicOnly when true, a location that is not publicly servable is
+     *                   reported as missing — the single lookup below serves both
+     *                   the state gate and the EVSE/connector extraction.
+     */
+    private Object getLocationEvseConnectorInternal(String countryCode, String partyId, String locationId,
+            String evseUid, String connectorId, boolean publicOnly) {
         try {
             Optional<MongoSmartLocation> locationOpt = smartLocationRepository
                     .findByCompoundIndex(countryCode, partyId, locationId);
+            if (publicOnly) {
+                locationOpt = locationOpt.filter(candidate -> SmartLocationActivationUtil
+                        .isPubliclyServable(candidate.getSmartLocationState()));
+            }
             if (locationOpt.isEmpty()) {
                 throw new OCPICustomException("Location not found");
             }
@@ -92,7 +120,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void putEvse(EvseDTO evseVO, String countryCode, String party_id, String locationId, String evseUid) {
 
         // get the locationDTO
-        LocationDTO locationDTO = (LocationDTO) getLocationEvseConnector(countryCode, party_id, locationId, null, null);
+        LocationDTO locationDTO = (LocationDTO) getLocationEvseConnectorInternal(countryCode, party_id, locationId, null, null);
         if (locationDTO == null) {
             throw new OCPICustomException("Location not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
@@ -154,13 +182,13 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     public void putConnector(ConnectorDTO connectorVO, String countryCode, String partyId, String locationId,
             String evseUid, String connectorId) {
         // get the locationDTO
-        LocationDTO locationDTO = (LocationDTO) getLocationEvseConnector(countryCode, partyId, locationId, null, null);
+        LocationDTO locationDTO = (LocationDTO) getLocationEvseConnectorInternal(countryCode, partyId, locationId, null, null);
         if (locationDTO == null) {
             throw new OCPICustomException("Location not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
 
         // get the EVSE DTO and current index
-        EvseDTO evseDTO = (EvseDTO) getLocationEvseConnector(countryCode, partyId, locationId, evseUid, null);
+        EvseDTO evseDTO = (EvseDTO) getLocationEvseConnectorInternal(countryCode, partyId, locationId, evseUid, null);
         if (evseDTO == null) {
             throw new OCPICustomException("EVSE not found", Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         }
@@ -294,7 +322,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             // exactly safeLimit items for non-page-aligned offsets
             int pageSize = safeLimit + remainder;
             Pageable pageable = PageRequest.of(page, pageSize);
-            List<LocationDTO> items = smartLocationRepository.findVerifiedSmartLocations(dateFrom, dateTo, pageable)
+            List<LocationDTO> items = smartLocationRepository.findActiveSmartLocations(dateFrom, dateTo, pageable)
                     .getContent()
                     .stream()
                     .map(mongoLoc -> (Location) mongoLoc) // MongoSmartLocation extends Location

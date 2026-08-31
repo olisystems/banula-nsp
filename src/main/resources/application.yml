@@ -35,6 +35,17 @@ remote-check:
   interval: ${REMOTE_CHECK_INTERVAL:3600000} # 1 hour in milliseconds
   timeout: ${REMOTE_CHECK_TIMEOUT:15000} # 15 seconds timeout
 
+active-state-check:
+  enabled: ${ACTIVE_STATE_CHECK_ENABLED:true}
+  cron: ${ACTIVE_STATE_CHECK_CRON:5 0 0 * * *} # 00:00:05 in api.zone-id (Europe/Berlin)
+
+# Pull locations from connected CPOs and publish via hub (DE/BAN) broadcast
+location-sync:
+  enabled: ${LOCATION_SYNC_ENABLED:true}
+  interval: ${LOCATION_SYNC_INTERVAL:3600000} # 1 hour
+  lookback-hours: ${LOCATION_SYNC_LOOKBACK_HOURS:1}
+  welcome-lookback-days: ${LOCATION_SYNC_WELCOME_LOOKBACK_DAYS:3650}
+
 springdoc:
   writer-with-order-by-keys: true
   swagger-ui:

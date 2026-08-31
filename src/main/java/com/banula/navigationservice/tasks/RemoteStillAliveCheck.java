@@ -74,9 +74,8 @@ public class RemoteStillAliveCheck implements Runnable {
             // Request the versions endpoint using Platform client
             CompletableFuture<OcpiResponse<List<VersionResponseDTO>>> future = CompletableFuture.supplyAsync(() -> {
                 try {
-                    String tenantId = applicationConfiguration.getPlatformCountryCode() + "_" + applicationConfiguration.getPlatformPartyId();
                     return platformClient.sendOutflowRequest(
-                            tenantId,
+                            applicationConfiguration.getPlatformTenantId(),
                             party.getPartyId(),
                             party.getCountryCode(),
                             InterfaceRole.SENDER,
