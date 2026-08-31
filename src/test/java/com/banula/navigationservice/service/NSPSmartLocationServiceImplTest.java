@@ -87,7 +87,7 @@ class NSPSmartLocationServiceImplTest {
     }
 
     @Test
-    void refreshActiveStates_shouldDemoteActive_whenWindowHasPassed() {
+    void refreshActiveStates_shouldArchiveActive_whenBothDaysAreInThePast() {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation location = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10),
                 today.minusDays(5));
@@ -96,15 +96,60 @@ class NSPSmartLocationServiceImplTest {
         stubToMongoIdentity();
 
         assertEquals(1, service.refreshActiveStates());
-        assertEquals(SmartLocationState.VERIFIED, location.getSmartLocationState());
+        assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
         assertFalse(location.getPublish());
+    }
+
+    @Test
+    void refreshActiveStates_shouldArchiveVerified_whenBothDaysAreInThePast() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.VERIFIED, today.minusDays(10),
+                today.minusDays(5));
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+        assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
+    }
+
+    @Test
+    void refreshActiveStates_shouldActivateOpenEndedWindow_whenFirstDayHasPassed() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.VERIFIED, today.minusDays(30), null);
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+        assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
+        assertTrue(location.getPublish());
+    }
+
+    @Test
+    void refreshActiveStates_shouldReviveArchived_whenTheLastDayIsGone() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.ARCHIVED, today.minusDays(30), null);
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+        assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
+    }
+
+    @Test
+    void refreshActiveStates_shouldKeepArchived_whenItHasNoWindow() {
+        MongoSmartLocation location = mongoLocation(SmartLocationState.ARCHIVED, null, null);
+        stubCandidates(location);
+
+        assertEquals(0, service.refreshActiveStates());
+        assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
+        verify(smartLocationRepository, never()).save(any(MongoSmartLocation.class));
     }
 
     @Test
     void refreshActiveStates_shouldNotSave_whenNothingChanged() {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
-        MongoSmartLocation unchangedVerified = mongoLocation(SmartLocationState.VERIFIED, today.minusDays(10),
-                today.minusDays(5));
+        MongoSmartLocation unchangedVerified = mongoLocation(SmartLocationState.VERIFIED, today.plusDays(5),
+                today.plusDays(10));
         MongoSmartLocation unchangedActive = mongoLocation(SmartLocationState.ACTIVE, today, today);
         stubCandidates(unchangedVerified, unchangedActive);
 
@@ -245,6 +290,215 @@ class NSPSmartLocationServiceImplTest {
         ArgumentCaptor<MongoSmartLocation> saved = ArgumentCaptor.forClass(MongoSmartLocation.class);
         verify(smartLocationRepository).save(saved.capture());
         assertTrue(saved.getValue().getLastUpdated().isAfter(LocalDateTime.of(2020, 1, 1, 0, 0)));
+    }
+
+    @Test
+    void patchSmartLocation_shouldActivate_whenOnlyTheFirstDayIsGiven() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.VERIFIED, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setActiveFirstDay(today.minusDays(2));
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
+        assertNull(result.getActiveLastDay());
+        assertTrue(result.getPublish());
+    }
+
+    @Test
+    void patchSmartLocation_shouldArchive_whenTheLastDayIsSetInThePast() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10), null);
+        existing.setPublish(true);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setActiveLastDay(today.minusDays(1));
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(SmartLocationState.ARCHIVED, result.getSmartLocationState());
+        assertFalse(result.getPublish());
+    }
+
+    /**
+     * The reversibility requirement: a last day entered by mistake archived the
+     * location, and sending an explicit null clears it and brings it back to
+     * ACTIVE, because the first day is still in the past.
+     */
+    @Test
+    void patchSmartLocation_shouldReviveArchived_whenTheLastDayIsClearedExplicitly() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ARCHIVED, today.minusDays(10),
+                today.minusDays(1));
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto, false, true);
+
+        assertNull(result.getActiveLastDay());
+        assertEquals(today.minusDays(10), result.getActiveFirstDay());
+        assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
+        assertTrue(result.getPublish());
+    }
+
+    @Test
+    void patchSmartLocation_shouldLeaveTheWindowAlone_whenNoDayKeyIsSent() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(1), today.plusDays(1));
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setSmartMeterId("someMeter");
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(today.minusDays(1), result.getActiveFirstDay());
+        assertEquals(today.plusDays(1), result.getActiveLastDay());
+        assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
+    }
+
+    @Test
+    void patchSmartLocation_shouldUpdateDates_onAnActiveLocation() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(5), today.plusDays(1));
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setActiveLastDay(today.plusDays(30));
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(today.plusDays(30), result.getActiveLastDay());
+        assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
+    }
+
+    @Test
+    void patchSmartLocation_shouldUpdateDates_onAnArchivedLocation() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ARCHIVED, today.minusDays(20),
+                today.minusDays(10));
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setActiveLastDay(today.plusDays(10));
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(today.plusDays(10), result.getActiveLastDay());
+        assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
+    }
+
+    @Test
+    void patchSmartLocation_shouldKeepTheWindow_whenAStateAndAWindowAreSentTogether() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ARCHIVED, today.minusDays(20),
+                today.minusDays(10));
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setSmartLocationState(SmartLocationState.VERIFIED);
+        dto.setActiveFirstDay(today.plusDays(1));
+        dto.setActiveLastDay(today.plusDays(5));
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(today.plusDays(1), result.getActiveFirstDay());
+        assertEquals(today.plusDays(5), result.getActiveLastDay());
+        assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
+    }
+
+    @Test
+    void patchSmartLocation_shouldRejectInvertedWindow() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.VERIFIED, null, null);
+        stubExisting(existing);
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setActiveFirstDay(today.plusDays(5));
+        dto.setActiveLastDay(today.plusDays(1));
+        stubFromDto(dto);
+
+        OCPICustomException exception = assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertTrue(exception.getMessage().contains("active_last_day must not be before active_first_day"));
+        verify(smartLocationRepository, never()).save(any(MongoSmartLocation.class));
+    }
+
+    @Test
+    void patchSmartLocation_shouldRejectLastDayWithoutFirstDay() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.VERIFIED, null, null);
+        stubExisting(existing);
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setActiveLastDay(today.plusDays(1));
+        stubFromDto(dto);
+
+        OCPICustomException exception = assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertTrue(exception.getMessage().contains("active_last_day requires active_first_day"));
+        verify(smartLocationRepository, never()).save(any(MongoSmartLocation.class));
+    }
+
+    @Test
+    void patchSmartLocation_shouldRejectClearingOnlyTheFirstDay() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(5), today.plusDays(5));
+        stubExisting(existing);
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        stubFromDto(dto);
+
+        assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto, true, false));
+    }
+
+    @Test
+    void patchSmartLocation_shouldDropToVerified_whenTheWholeWindowIsCleared() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(5), today.plusDays(5));
+        existing.setPublish(true);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto, true, true);
+
+        assertNull(result.getActiveFirstDay());
+        assertNull(result.getActiveLastDay());
+        assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
+        assertFalse(result.getPublish());
     }
 
     // ---------- helpers ----------

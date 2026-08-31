@@ -27,6 +27,8 @@ import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,6 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NonOcpiSmartLocationController {
     protected final NSPSmartLocationService nspSmartLocationService;
     protected final ApplicationConfiguration applicationConfiguration;
+    protected final ObjectMapper objectMapper;
 
     @GetMapping
     @LogRequest
@@ -118,8 +121,10 @@ public class NonOcpiSmartLocationController {
     }
 
     @Operation(summary = "Partially update a smart location", description = "Updates specific fields of a smart location identified by country code, party ID, and location ID. "
-            + "Sending an activation window (active_first_day / active_last_day) sets it; the window can never be cleared by sending nulls, "
-            + "because only non-null fields are copied. Sending smart_location_state instead clears both window days. "
+            + "Only the fields present in the body are touched. The activation window needs active_first_day only: leaving active_last_day out opens it ended. "
+            + "Sending a day explicitly as null clears it, which is how a mistakenly entered active_last_day is removed — the location then leaves ARCHIVED and becomes ACTIVE again "
+            + "when its first day is today or earlier. Sending smart_location_state without any window day still clears both days. "
+            + "active_last_day must not be before active_first_day, and cannot be set without one. "
             + "ACTIVE is rejected: it is derived from the window, never set by hand.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Location successfully updated", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class))),
@@ -132,10 +137,16 @@ public class NonOcpiSmartLocationController {
             @Parameter(description = "Country code", example = "DE") @PathVariable(value = "countryCode") String countryCode,
             @Parameter(description = "Party ID", example = "ABC") @PathVariable(value = "partyId") String partyId,
             @Parameter(description = "Location ID", example = "ARCMIND1") @PathVariable(value = "locationId") String locationId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Smart location data to update", required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = SmartLocationDTO.class), examples = @ExampleObject(name = "Update default supplier", value = "{\n  \"default_supplier\": {\n    \"default_supplier_malo_id\": \"DEF_SUP_1234\"\n  }\n}"))) @RequestBody SmartLocationDTO smartLocationDTO,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Smart location data to update", required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = SmartLocationDTO.class), examples = @ExampleObject(name = "Clear the last active day", value = "{\n  \"active_last_day\": null\n}"))) @RequestBody JsonNode requestBody,
             HttpServletRequest request) {
+        // Bound as a JsonNode so an absent key ("leave unchanged") stays
+        // distinguishable from an explicit null ("clear this day"); the DTO alone
+        // collapses both into null.
+        SmartLocationDTO smartLocationDTO = objectMapper.convertValue(requestBody, SmartLocationDTO.class);
+
         SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, partyId, locationId,
-                smartLocationDTO);
+                smartLocationDTO, isExplicitNull(requestBody, "active_first_day"),
+                isExplicitNull(requestBody, "active_last_day"));
 
         if (updatedLocation == null) {
             String locationKey = countryCode + "*" + partyId + "*" + locationId;
@@ -146,7 +157,7 @@ public class NonOcpiSmartLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
     }
 
-    @Operation(summary = "Re-evaluate smart location active states", description = "Runs the same evaluation as the daily 00:00:05 job in the configured api.zone-id time zone: every VERIFIED location whose activation window covers today becomes ACTIVE, and every ACTIVE location whose window has passed returns to VERIFIED. Idempotent — running it twice in the same day changes nothing. Returns the number of locations whose state actually changed.")
+    @Operation(summary = "Re-evaluate smart location active states", description = "Runs the same evaluation as the daily 00:00:05 job in the configured api.zone-id time zone: a location whose activation window covers today becomes ACTIVE, one whose window has passed becomes ARCHIVED, and one whose window has not started yet waits as VERIFIED. Idempotent — running it twice in the same day changes nothing. Returns the number of locations whose state actually changed.")
     @PostMapping("/refresh-active-states")
     @LogRequest
     @CrossOrigin
@@ -189,4 +200,13 @@ public class NonOcpiSmartLocationController {
     private static boolean isBlankParam(String value) {
         return value == null || value.trim().isEmpty();
     }
+
+    /**
+     * Whether the caller explicitly sent {@code "field": null} — as opposed to
+     * leaving the key out, which means "leave this field unchanged".
+     */
+    private static boolean isExplicitNull(JsonNode requestBody, String field) {
+        return requestBody != null && requestBody.has(field) && requestBody.get(field).isNull();
+    }
+
 }

@@ -66,6 +66,12 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     @Override
     public SmartLocationDTO patchSmartLocation(String countryCode, String partyId, String id,
             SmartLocationDTO smartLocationDTO) {
+        return patchSmartLocation(countryCode, partyId, id, smartLocationDTO, false, false);
+    }
+
+    @Override
+    public SmartLocationDTO patchSmartLocation(String countryCode, String partyId, String id,
+            SmartLocationDTO smartLocationDTO, boolean clearActiveFirstDay, boolean clearActiveLastDay) {
 
         try {
             validateAndPopulateLocationIdentifiers(smartLocationDTO, countryCode, partyId, id);
@@ -95,6 +101,13 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
             boolean stateRequested = smartLocationDTO.getSmartLocationState() != null;
 
+            // "The caller said something about the window" — either a day to set or a
+            // day to clear. It is what tells an activation-window edit apart from a
+            // plain state change.
+            boolean windowRequested = smartLocationDTO.getActiveFirstDay() != null
+                    || smartLocationDTO.getActiveLastDay() != null
+                    || clearActiveFirstDay || clearActiveLastDay;
+
             // Handle smartLocationState from DTO
             if (stateRequested) {
                 existingEntity.setSmartLocationState(smartLocationDTO.getSmartLocationState());
@@ -104,12 +117,24 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             ModelPatcherUtil.smartLocationPatcher(existingEntity,
                     incompleteEntity);
 
-            // Choosing a state explicitly clears the activation window: the patcher copies
-            // non-null values only and can therefore never clear a field on its own.
-            if (stateRequested) {
+            // Choosing a state on its own clears the activation window — but not when the
+            // same request also edits the window, otherwise the days of an ACTIVE or
+            // ARCHIVED location could never be corrected in a single call.
+            if (stateRequested && !windowRequested) {
                 existingEntity.setActiveFirstDay(null);
                 existingEntity.setActiveLastDay(null);
             }
+
+            // The patcher copies non-null values only and can therefore never clear a
+            // field on its own; an explicit null in the payload is applied here.
+            if (clearActiveFirstDay) {
+                existingEntity.setActiveFirstDay(null);
+            }
+            if (clearActiveLastDay) {
+                existingEntity.setActiveLastDay(null);
+            }
+
+            validateActivationWindow(existingEntity);
 
             // Automatically set state to ENRICHED if it's currently PLAIN_OCPI and all
             // required smart fields are present
@@ -410,7 +435,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     public int refreshActiveStates() {
         LocalDate today = SmartLocationActivationUtil.today(applicationConfiguration.getZoneId());
         List<MongoSmartLocation> candidates = smartLocationRepository.findBySmartLocationStateIn(
-                List.of(SmartLocationState.VERIFIED, SmartLocationState.ACTIVE));
+                List.of(SmartLocationState.VERIFIED, SmartLocationState.ACTIVE, SmartLocationState.ARCHIVED));
 
         int changed = 0;
         for (MongoSmartLocation candidate : candidates) {
@@ -426,6 +451,30 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         log.info("Refreshed smart location active states for {} ({} candidate(s), {} changed)", today,
                 candidates.size(), changed);
         return changed;
+    }
+
+    /**
+     * Rejects an activation window that could never make sense, so bad data is
+     * refused at the door instead of silently never activating.
+     */
+    private void validateActivationWindow(SmartLocation entity) {
+        LocalDate firstDay = entity.getActiveFirstDay();
+        LocalDate lastDay = entity.getActiveLastDay();
+
+        if (firstDay == null) {
+            if (lastDay != null) {
+                throw new OCPICustomException(
+                        "active_last_day requires active_first_day",
+                        Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+            }
+            return;
+        }
+
+        if (!SmartLocationActivationUtil.isWindowValid(firstDay, lastDay)) {
+            throw new OCPICustomException(
+                    "active_last_day must not be before active_first_day",
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+        }
     }
 
     /**
