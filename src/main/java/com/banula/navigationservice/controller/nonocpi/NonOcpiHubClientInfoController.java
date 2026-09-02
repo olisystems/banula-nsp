@@ -51,6 +51,15 @@ public class NonOcpiHubClientInfoController {
                 hubClientInfoService.getPaginatedHubClientInfos(dateFrom, dateTo, offset, limit)));
     }
 
+    @Operation(summary = "Sync hub client info from the hub", description = "Pulls the party list from the hub over OCPI and applies every record, reconciling statuses that went stale locally. Returns how many parties were applied.")
+    @PostMapping("/sync")
+    @LogRequest
+    public ResponseEntity<OcpiResponse<String>> syncHubClientInfos() {
+        int synced = hubClientInfoService.pullHubClientInfoFromHub();
+        return ResponseEntity.ok(new OcpiResponse<>(
+                synced + (synced == 1 ? " party" : " parties") + " synced from the hub"));
+    }
+
     @PutMapping("/{countryCode}/{partyId}")
     @LogRequest
     public ResponseEntity<OcpiResponse<HubClientInfoDTO>> updateHubClientInfoByPartyIdAndCountryCode(
