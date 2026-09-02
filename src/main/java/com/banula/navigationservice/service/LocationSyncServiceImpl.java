@@ -44,7 +44,7 @@ public class LocationSyncServiceImpl implements LocationSyncService {
     }
 
     @Override
-    public void syncRecentLocations() {
+    public int syncRecentLocations() {
         LocalDateTime to = LocalDateTime.now(ZoneOffset.UTC);
         LocalDateTime from = to.minusHours(applicationConfiguration.getLocationSyncLookbackHours());
 
@@ -57,32 +57,35 @@ public class LocationSyncServiceImpl implements LocationSyncService {
                 .toList();
 
         log.info("Hourly location sync: {} connected CPO(s), window {} -> {}", cpos.size(), from, to);
+        int stored = 0;
         for (HubClientInfoDTO cpo : cpos) {
             try {
-                pullStoreAndBroadcast(cpo.getCountryCode(), cpo.getPartyId(), from, to);
+                stored += pullStoreAndBroadcast(cpo.getCountryCode(), cpo.getPartyId(), from, to);
             } catch (Exception e) {
                 log.warn("Location sync failed for {}/{}: {}", cpo.getCountryCode(), cpo.getPartyId(), e.getMessage());
             }
         }
+        return stored;
     }
 
     @Override
-    public void pullStoreAndBroadcast(String countryCode, String partyId, LocalDateTime dateFrom,
+    public int pullStoreAndBroadcast(String countryCode, String partyId, LocalDateTime dateFrom,
             LocalDateTime dateTo) {
         if (applicationConfiguration.getPlatformTenantId() == null) {
             log.warn("Skipping location sync for {}/{}: platform hub identity is not configured", countryCode,
                     partyId);
-            return;
+            return 0;
         }
 
         List<LocationDTO> locations = nspPlatformClient.getLocations(countryCode, partyId, dateFrom, dateTo);
         if (locations == null || locations.isEmpty()) {
             log.info("No locations returned from {}/{} for window {} -> {}", countryCode, partyId, dateFrom, dateTo);
-            return;
+            return 0;
         }
 
         log.info("Pulled {} location(s) from {}/{}; storing locally then PUT to hub for OCN broadcast",
                 locations.size(), countryCode, partyId);
+        int stored = 0;
         for (LocationDTO location : locations) {
             ensureOwner(location, countryCode, partyId);
             if (!sameParty(location.getCountryCode(), location.getPartyId(), countryCode, partyId)) {
@@ -93,6 +96,7 @@ public class LocationSyncServiceImpl implements LocationSyncService {
             try {
                 locationService.putLocation(location, location.getCountryCode(), location.getPartyId(),
                         location.getId());
+                stored++;
             } catch (Exception e) {
                 log.warn("Failed to store location {} from {}/{}: {}", location.getId(), countryCode, partyId,
                         e.getMessage());
@@ -107,8 +111,9 @@ public class LocationSyncServiceImpl implements LocationSyncService {
             }
         }
 
-        log.info("Finished pull/store/hub-put for {} location(s) from {}/{}", locations.size(), countryCode,
-                partyId);
+        log.info("Finished pull/store/hub-put for {} of {} location(s) from {}/{}", stored, locations.size(),
+                countryCode, partyId);
+        return stored;
     }
 
     private void ensureOwner(LocationDTO location, String countryCode, String partyId) {

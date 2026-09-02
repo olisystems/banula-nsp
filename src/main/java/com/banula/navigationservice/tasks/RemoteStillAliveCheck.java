@@ -38,21 +38,23 @@ public class RemoteStillAliveCheck implements Runnable {
 
     @Override
     public void run() {
-        log.info("Starting remote still alive check for parties with PLANNED status");
+        log.info("Starting remote still alive check");
 
         try {
-            // Get all parties with PLANNED status
-            List<HubClientInfoDTO> plannedParties = hubClientInfoService
-                    .getHubClientInfosByStatus(List.of(ConnectionStatus.PLANNED, ConnectionStatus.CONNECTED));
+            // OFFLINE is included so a party that dropped can come back: leaving it
+            // out made the transition one-way and no party ever recovered.
+            List<HubClientInfoDTO> parties = hubClientInfoService
+                    .getHubClientInfosByStatus(
+                            List.of(ConnectionStatus.PLANNED, ConnectionStatus.CONNECTED, ConnectionStatus.OFFLINE));
 
-            if (plannedParties.isEmpty()) {
-                log.info("No parties with PLANNED status found");
+            if (parties.isEmpty()) {
+                log.info("No parties to check");
                 return;
             }
 
-            log.info("Found {} parties with PLANNED status, checking their versions endpoint", plannedParties.size());
+            log.info("Found {} parties, checking their versions endpoint", parties.size());
 
-            for (HubClientInfoDTO party : plannedParties) {
+            for (HubClientInfoDTO party : parties) {
                 checkPartyVersions(party);
             }
 
@@ -76,8 +78,8 @@ public class RemoteStillAliveCheck implements Runnable {
                 try {
                     return platformClient.sendOutflowRequest(
                             applicationConfiguration.getPlatformTenantId(),
-                            party.getPartyId(),
                             party.getCountryCode(),
+                            party.getPartyId(),
                             InterfaceRole.SENDER,
                             ModuleID.VERSIONS,
                             HttpMethod.GET,

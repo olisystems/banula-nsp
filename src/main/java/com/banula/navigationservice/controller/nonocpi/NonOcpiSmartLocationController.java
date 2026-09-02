@@ -1,6 +1,8 @@
 package com.banula.navigationservice.controller.nonocpi;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -21,12 +23,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.dto.BulkImportResultDTO;
+import com.banula.navigationservice.service.LocationSyncService;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
 import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
+import com.banula.openlib.ocpi.util.Constants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -53,6 +57,7 @@ public class NonOcpiSmartLocationController {
     protected final NSPSmartLocationService nspSmartLocationService;
     protected final ApplicationConfiguration applicationConfiguration;
     protected final ObjectMapper objectMapper;
+    protected final LocationSyncService locationSyncService;
 
     @GetMapping
     @LogRequest
@@ -95,6 +100,11 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "partyId") String party_id,
             @PathVariable(value = "locationId") String locationId) {
         SmartLocationDTO smartLocation = nspSmartLocationService.getLocation(countryCode, party_id, locationId);
+        if (smartLocation == null) {
+            String locationKey = countryCode + "*" + party_id + "*" + locationId;
+            return ResponseEntity.status(404).body(
+                    new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
+        }
         return ResponseEntity.ok(new OcpiResponse<>(smartLocation));
     }
 
@@ -163,6 +173,40 @@ public class NonOcpiSmartLocationController {
     @CrossOrigin
     public ResponseEntity<OcpiResponse<Integer>> refreshActiveStates() {
         return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.refreshActiveStates()));
+    }
+
+    @Operation(summary = "Pull locations from CPOs now", description = "Runs the same work as the hourly location sync, on demand. Given countryCode and partyId it pulls that one CPO regardless of its connection status, which is what makes it usable right after a location is created. Given neither, it syncs every CONNECTED CPO exactly as the scheduled job does. The window ends now and starts lookbackHours earlier, defaulting to location-sync.lookback-hours. Returns the number of locations stored.")
+    @Parameters({
+            @Parameter(name = "countryCode", in = ParameterIn.QUERY, required = false, description = "Country code of the CPO to pull from; must be paired with partyId", schema = @Schema(type = "string")),
+            @Parameter(name = "partyId", in = ParameterIn.QUERY, required = false, description = "Party ID of the CPO to pull from; must be paired with countryCode", schema = @Schema(type = "string")),
+            @Parameter(name = "lookbackHours", in = ParameterIn.QUERY, required = false, description = "How many hours back to pull; defaults to location-sync.lookback-hours", schema = @Schema(type = "integer"))
+    })
+    @PostMapping("/pull-locations")
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<Integer>> pullLocations(
+            @RequestParam(value = "countryCode", required = false) String countryCode,
+            @RequestParam(value = "partyId", required = false) String partyId,
+            @RequestParam(value = "lookbackHours", required = false) Long lookbackHours) {
+
+        boolean hasCountryCode = !isBlankParam(countryCode);
+        boolean hasPartyId = !isBlankParam(partyId);
+
+        if (hasCountryCode != hasPartyId) {
+            return ResponseEntity.badRequest().body(new OcpiResponse<>(null,
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS,
+                    "countryCode and partyId must be provided together"));
+        }
+
+        if (!hasCountryCode) {
+            return ResponseEntity.ok(new OcpiResponse<>(locationSyncService.syncRecentLocations()));
+        }
+
+        long hours = lookbackHours != null ? lookbackHours : applicationConfiguration.getLocationSyncLookbackHours();
+        LocalDateTime to = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime from = to.minusHours(hours);
+        return ResponseEntity.ok(new OcpiResponse<>(
+                locationSyncService.pullStoreAndBroadcast(countryCode, partyId, from, to)));
     }
 
     @Operation(summary = "Bulk import smart locations from CSV", description = "Enriches existing locations using a CSV file. Each row is patched independently; rows that fail are reported in the response.")

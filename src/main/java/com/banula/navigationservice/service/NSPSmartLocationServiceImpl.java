@@ -60,6 +60,11 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         MongoSmartLocation smartLocation = smartLocationRepository
                 .findByCompoundIndex(countryCode, partyId, locationId)
                 .orElse(null);
+        if (smartLocation == null) {
+            // The mapper cannot take a null source, so return null here and let the
+            // caller answer 404 instead of failing with a 500.
+            return null;
+        }
         return genericMongoMapper.mongoToDTO(smartLocation, SmartLocation.class, SmartLocationDTO.class);
     }
 

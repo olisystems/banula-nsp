@@ -158,8 +158,8 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       String tenantId = applicationConfiguration.getPlatformTenantId();
       OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = platformClient.sendOutflowRequest(
           tenantId,
-          hubPartyId,
           hubCountryCode,
+          hubPartyId,
           InterfaceRole.SENDER,
           ModuleID.HUB_CLIENT_INFO,
           HttpMethod.GET,
