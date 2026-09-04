@@ -45,8 +45,7 @@ public class NonOcpiHubClientInfoController {
             @RequestParam(value = "offset", required = false, defaultValue = "0") Integer offset,
             @RequestParam(value = "limit", required = false, defaultValue = "20") Integer limit) {
 
-        // Both nulls means "no date criteria": the underlying query filters on
-        // createdAt, which these documents do not carry, so any window matches nothing.
+        // Both nulls means "no date criteria"; otherwise the window is applied to lastUpdated.
         return ResponseEntity.ok(new OcpiResponse<>(
                 hubClientInfoService.getPaginatedHubClientInfos(dateFrom, dateTo, offset, limit)));
     }

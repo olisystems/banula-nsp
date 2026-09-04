@@ -2,6 +2,8 @@ package com.banula.navigationservice.tasks;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -43,9 +45,9 @@ public class RemoteStillAliveCheck implements Runnable {
         try {
             // OFFLINE is included so a party that dropped can come back: leaving it
             // out made the transition one-way and no party ever recovered.
-            List<HubClientInfoDTO> parties = hubClientInfoService
+            List<HubClientInfoDTO> parties = dedupeKeepingNewest(hubClientInfoService
                     .getHubClientInfosByStatus(
-                            List.of(ConnectionStatus.PLANNED, ConnectionStatus.CONNECTED, ConnectionStatus.OFFLINE));
+                            List.of(ConnectionStatus.PLANNED, ConnectionStatus.CONNECTED, ConnectionStatus.OFFLINE)));
 
             if (parties.isEmpty()) {
                 log.info("No parties to check");
@@ -63,6 +65,26 @@ public class RemoteStillAliveCheck implements Runnable {
         } catch (Exception e) {
             log.error("Error during remote still alive check: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * One entry per party/role, keeping the most recently updated document.
+     *
+     * <p>
+     * The collection carries no unique index, so a write race can leave several documents for the
+     * same key (see {@code HubClientInfoServiceImpl#findExistingClientInfo}). Without this the same
+     * party would be probed and broadcast once per duplicate. The results arrive sorted by
+     * lastUpdated descending, so the first occurrence of a key is the newest one. Role stays part
+     * of the key: a party may legitimately be registered as both CPO and eMSP, and the update path
+     * is keyed by role as well, so those records must each be checked.
+     */
+    private static List<HubClientInfoDTO> dedupeKeepingNewest(List<HubClientInfoDTO> parties) {
+        Map<String, HubClientInfoDTO> newestByKey = new LinkedHashMap<>();
+        for (HubClientInfoDTO party : parties) {
+            String key = party.getCountryCode() + "*" + party.getPartyId() + "*" + party.getRole();
+            newestByKey.putIfAbsent(key, party);
+        }
+        return new ArrayList<>(newestByKey.values());
     }
 
     private void checkPartyVersions(HubClientInfoDTO party) {

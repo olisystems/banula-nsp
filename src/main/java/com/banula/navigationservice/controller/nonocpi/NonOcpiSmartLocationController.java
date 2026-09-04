@@ -175,7 +175,7 @@ public class NonOcpiSmartLocationController {
         return ResponseEntity.ok(new OcpiResponse<>(nspSmartLocationService.refreshActiveStates()));
     }
 
-    @Operation(summary = "Pull locations from CPOs now", description = "Runs the same work as the hourly location sync, on demand. Given countryCode and partyId it pulls that one CPO regardless of its connection status, which is what makes it usable right after a location is created. Given neither, it syncs every CONNECTED CPO exactly as the scheduled job does. The window ends now and starts lookbackHours earlier, defaulting to location-sync.lookback-hours. Returns the number of locations stored.")
+    @Operation(summary = "Pull locations from CPOs now", description = "Runs the same work as the hourly location sync, on demand. Given countryCode and partyId it pulls that one CPO regardless of its connection status, which is what makes it usable right after a location is created. Given neither, it syncs every CONNECTED CPO exactly as the scheduled job does. In both modes the window ends now and starts lookbackHours earlier, defaulting to location-sync.lookback-hours; a negative lookbackHours is rejected. Returns the number of locations stored.")
     @Parameters({
             @Parameter(name = "countryCode", in = ParameterIn.QUERY, required = false, description = "Country code of the CPO to pull from; must be paired with partyId", schema = @Schema(type = "string")),
             @Parameter(name = "partyId", in = ParameterIn.QUERY, required = false, description = "Party ID of the CPO to pull from; must be paired with countryCode", schema = @Schema(type = "string")),
@@ -198,11 +198,20 @@ public class NonOcpiSmartLocationController {
                     "countryCode and partyId must be provided together"));
         }
 
-        if (!hasCountryCode) {
-            return ResponseEntity.ok(new OcpiResponse<>(locationSyncService.syncRecentLocations()));
+        // Resolved before branching so the caller's window applies to the all-CPO sync too,
+        // and so a negative value - request or configured fallback - is rejected rather than
+        // silently producing a window that ends before it starts.
+        long hours = lookbackHours != null ? lookbackHours : applicationConfiguration.getLocationSyncLookbackHours();
+        if (hours < 0) {
+            return ResponseEntity.badRequest().body(new OcpiResponse<>(null,
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS,
+                    "lookbackHours must not be negative"));
         }
 
-        long hours = lookbackHours != null ? lookbackHours : applicationConfiguration.getLocationSyncLookbackHours();
+        if (!hasCountryCode) {
+            return ResponseEntity.ok(new OcpiResponse<>(locationSyncService.syncRecentLocations(hours)));
+        }
+
         LocalDateTime to = LocalDateTime.now(ZoneOffset.UTC);
         LocalDateTime from = to.minusHours(hours);
         return ResponseEntity.ok(new OcpiResponse<>(

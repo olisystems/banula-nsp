@@ -17,6 +17,15 @@ public interface LocationSyncService {
     int syncRecentLocations();
 
     /**
+     * Same as {@link #syncRecentLocations()} but over an explicit window, so an on-demand
+     * caller can widen or narrow the lookback the scheduled job uses.
+     *
+     * @param lookbackHours how many hours back from now the window starts; must not be negative
+     * @return how many locations were stored across all connected CPOs
+     */
+    int syncRecentLocations(long lookbackHours);
+
+    /**
      * Pull one party's locations for a window, store them and publish through the hub.
      * Does not consult the party's connection status, so it can be driven on demand.
      *

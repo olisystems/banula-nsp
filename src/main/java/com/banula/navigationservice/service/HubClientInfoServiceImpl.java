@@ -84,12 +84,14 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   private Query createQueryForHubClientInfo(LocalDateTime dateFrom, LocalDateTime dateTo) {
     Query query = new Query();
     Criteria criteria = new Criteria();
+    // Filter on lastUpdated: it is the only timestamp these documents carry, and OCPI defines
+    // date_from/date_to over last_updated. Filtering on createdAt matched nothing at all.
     if (dateFrom != null && dateTo != null) {
-      criteria = Criteria.where("createdAt").gte(dateFrom).lte(dateTo);
+      criteria = Criteria.where("lastUpdated").gte(dateFrom).lte(dateTo);
     } else if (dateFrom != null) {
-      criteria = Criteria.where("createdAt").gte(dateFrom);
+      criteria = Criteria.where("lastUpdated").gte(dateFrom);
     } else if (dateTo != null) {
-      criteria = Criteria.where("createdAt").lte(dateTo);
+      criteria = Criteria.where("lastUpdated").lte(dateTo);
     }
 
     query.addCriteria(criteria);
@@ -212,7 +214,10 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
     if (hubClientInfoParties == null) {
       throw new OCPICustomException("The hub returned an empty HubClientInfo response");
     }
-    if (hubClientInfoParties.getStatus_code() > 2000) {
+    // Only the OCPI 1xxx range is a success; 2xxx (client) and 3xxx (server) codes are errors,
+    // so 2000 must not slip through and be reported as an empty-but-successful sync.
+    int statusCode = hubClientInfoParties.getStatus_code();
+    if (statusCode < 1000 || statusCode >= 2000) {
       throw new OCPICustomException(
           "The hub rejected the HubClientInfo request: " + hubClientInfoParties.getStatus_message());
     }

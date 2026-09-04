@@ -45,8 +45,13 @@ public class LocationSyncServiceImpl implements LocationSyncService {
 
     @Override
     public int syncRecentLocations() {
+        return syncRecentLocations(applicationConfiguration.getLocationSyncLookbackHours());
+    }
+
+    @Override
+    public int syncRecentLocations(long lookbackHours) {
         LocalDateTime to = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime from = to.minusHours(applicationConfiguration.getLocationSyncLookbackHours());
+        LocalDateTime from = to.minusHours(lookbackHours);
 
         List<HubClientInfoDTO> connected = hubClientInfoService
                 .getHubClientInfosByStatus(List.of(ConnectionStatus.CONNECTED));
