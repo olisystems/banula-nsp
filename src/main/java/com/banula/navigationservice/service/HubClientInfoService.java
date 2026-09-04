@@ -17,5 +17,11 @@ public interface HubClientInfoService {
 
   void syncAllHubClientInfoParties();
 
+  /**
+   * Pull the party list from the hub and apply it, returning how many records were applied. Throws
+   * when the hub cannot be reached or rejects the request, so on-demand callers can report it.
+   */
+  int pullHubClientInfoFromHub();
+
   List<HubClientInfoDTO> getHubClientInfosByStatus(List<ConnectionStatus> statuses);
 }
