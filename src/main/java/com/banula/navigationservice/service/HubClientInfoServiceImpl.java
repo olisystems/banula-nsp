@@ -27,6 +27,7 @@ import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
 import com.banula.openlib.ocpi.model.enums.InterfaceRole;
 import com.banula.openlib.ocpi.model.enums.ModuleID;
+import com.banula.openlib.ocpi.model.enums.Role;
 import com.banula.openlib.ocpi.platform.PlatformClient;
 
 import lombok.AllArgsConstructor;
@@ -52,7 +53,11 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
       Query query = createQueryForHubClientInfo(dateFrom, dateTo);
       query.skip(offset != null ? offset : 0);
       query.limit(limit != null ? limit : Integer.MAX_VALUE);
-      query.with(Sort.by(Sort.Direction.DESC, "lastUpdated"));
+      // Connected parties first. The status is persisted as its enum name and the OCPI
+      // ConnectionStatus set is closed - CONNECTED, OFFLINE, PLANNED, SUSPENDED - so ascending
+      // order already puts the usable parties on top. Sorting here rather than after the fact
+      // keeps it correct across pages, since the database applies it before skip/limit.
+      query.with(Sort.by(Sort.Order.asc("status"), Sort.Order.desc("lastUpdated")));
 
       // Execute query using MongoTemplate
       List<MongoClientInfo> hubClientInfos = mongoTemplate.find(query, MongoClientInfo.class,
@@ -79,12 +84,14 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   private Query createQueryForHubClientInfo(LocalDateTime dateFrom, LocalDateTime dateTo) {
     Query query = new Query();
     Criteria criteria = new Criteria();
+    // Filter on lastUpdated: it is the only timestamp these documents carry, and OCPI defines
+    // date_from/date_to over last_updated. Filtering on createdAt matched nothing at all.
     if (dateFrom != null && dateTo != null) {
-      criteria = Criteria.where("createdAt").gte(dateFrom).lte(dateTo);
+      criteria = Criteria.where("lastUpdated").gte(dateFrom).lte(dateTo);
     } else if (dateFrom != null) {
-      criteria = Criteria.where("createdAt").gte(dateFrom);
+      criteria = Criteria.where("lastUpdated").gte(dateFrom);
     } else if (dateTo != null) {
-      criteria = Criteria.where("createdAt").lte(dateTo);
+      criteria = Criteria.where("lastUpdated").lte(dateTo);
     }
 
     query.addCriteria(criteria);
@@ -100,8 +107,15 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   @Override
   public HubClientInfoDTO updateHubClientInfoByPartyIdAndCountryCode(String partyId, String countryCode,
       HubClientInfoDTO clientInfoDTO) {
-    MongoClientInfo mongoClientInfo = hubClientInfoRepository
-        .findByPartyIdAndCountryCodeAndRole(partyId, countryCode, clientInfoDTO.getRole()).orElse(null);
+    return upsertHubClientInfo(partyId, countryCode, clientInfoDTO);
+  }
+
+  public HubClientInfoDTO updateHubClientInfo(HubClientInfoDTO clientInfoDTO) {
+    return upsertHubClientInfo(clientInfoDTO.getPartyId(), clientInfoDTO.getCountryCode(), clientInfoDTO);
+  }
+
+  private HubClientInfoDTO upsertHubClientInfo(String partyId, String countryCode, HubClientInfoDTO clientInfoDTO) {
+    MongoClientInfo mongoClientInfo = findExistingClientInfo(partyId, countryCode, clientInfoDTO.getRole());
     ConnectionStatus previousStatus = mongoClientInfo != null ? mongoClientInfo.getStatus() : null;
     if (mongoClientInfo == null) {
       mongoClientInfo = new MongoClientInfo();
@@ -116,21 +130,27 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
     return saved;
   }
 
-  public HubClientInfoDTO updateHubClientInfo(HubClientInfoDTO clientInfoDTO) {
-    MongoClientInfo mongoClientInfo = hubClientInfoRepository.findByPartyIdAndCountryCodeAndRole(
-        clientInfoDTO.getPartyId(), clientInfoDTO.getCountryCode(), clientInfoDTO.getRole()).orElse(null);
-    ConnectionStatus previousStatus = mongoClientInfo != null ? mongoClientInfo.getStatus() : null;
-    if (mongoClientInfo == null) {
-      mongoClientInfo = new MongoClientInfo();
-      mongoClientInfo.setPartyId(clientInfoDTO.getPartyId());
-      mongoClientInfo.setCountryCode(clientInfoDTO.getCountryCode());
-      mongoClientInfo.setRole(clientInfoDTO.getRole());
+  /**
+   * Most recently updated document for this party/role, or null when there is none.
+   *
+   * <p>
+   * The collection carries no unique index on party/country/role, so a write race can leave more
+   * than one document for the same key. Reading those through an Optional-returning finder throws,
+   * and because callers log-and-continue that made every later update for the affected party fail
+   * silently - freezing its status. Taking the newest of the duplicates keeps the party updatable.
+   */
+  private MongoClientInfo findExistingClientInfo(String partyId, String countryCode, Role role) {
+    List<MongoClientInfo> matches = hubClientInfoRepository
+        .findByPartyIdAndCountryCodeAndRoleOrderByLastUpdatedDesc(partyId, countryCode, role);
+
+    if (matches.isEmpty()) {
+      return null;
     }
-    mongoClientInfo.setStatus(clientInfoDTO.getStatus());
-    mongoClientInfo.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
-    HubClientInfoDTO saved = ClientInfoMapper.toHubClientInfoDTO(hubClientInfoRepository.save(mongoClientInfo));
-    publishConnectedIfTransition(previousStatus, saved);
-    return saved;
+    if (matches.size() > 1) {
+      log.warn("Found {} duplicate HubClientInfo documents for {}/{} ({}); updating the most recent one. "
+          + "The redundant documents should be cleaned up.", matches.size(), countryCode, partyId, role);
+    }
+    return matches.get(0);
   }
 
   private void publishConnectedIfTransition(ConnectionStatus previousStatus, HubClientInfoDTO saved) {
@@ -148,18 +168,36 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
   @Override
   public void syncAllHubClientInfoParties() {
     try {
-      String hubCountryCode = applicationConfiguration.getPlatformCountryCode();
-      String hubPartyId = applicationConfiguration.getPlatformPartyId();
-      if (hubCountryCode == null || hubCountryCode.isBlank() || hubPartyId == null || hubPartyId.isBlank()) {
-        log.warn("Skipping HubClientInfo sync: platform.country-code / platform.party-id not configured");
-        return;
-      }
+      pullHubClientInfoFromHub();
+    } catch (Exception ex) {
+      log.warn("Initial HubClientInfo sync failed, NSP will start creating the list dynamically "
+          + ex.getLocalizedMessage());
+    }
+  }
 
-      String tenantId = applicationConfiguration.getPlatformTenantId();
-      OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties = platformClient.sendOutflowRequest(
-          tenantId,
-          hubPartyId,
+  /**
+   * Pull the party list from the hub and apply every record, returning how many were applied.
+   *
+   * <p>
+   * Unlike {@link #syncAllHubClientInfoParties()}, which is best-effort because it runs at startup,
+   * this surfaces failures to the caller so an on-demand sync can report what actually went wrong
+   * instead of always reporting success.
+   */
+  @Override
+  public int pullHubClientInfoFromHub() {
+    String hubCountryCode = applicationConfiguration.getPlatformCountryCode();
+    String hubPartyId = applicationConfiguration.getPlatformPartyId();
+    if (hubCountryCode == null || hubCountryCode.isBlank() || hubPartyId == null || hubPartyId.isBlank()) {
+      throw new OCPICustomException(
+          "Cannot sync HubClientInfo: platform.country-code / platform.party-id are not configured");
+    }
+
+    OcpiResponse<List<HubClientInfoDTO>> hubClientInfoParties;
+    try {
+      hubClientInfoParties = platformClient.sendOutflowRequest(
+          applicationConfiguration.getPlatformTenantId(),
           hubCountryCode,
+          hubPartyId,
           InterfaceRole.SENDER,
           ModuleID.HUB_CLIENT_INFO,
           HttpMethod.GET,
@@ -168,19 +206,33 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
           },
           List.of(),
           Map.of());
-
-      if (hubClientInfoParties.getStatus_code() > 2000) {
-        throw new Exception(hubClientInfoParties.getStatus_message());
-      }
-
-      for (HubClientInfoDTO hubClientInfo : hubClientInfoParties.getData()) {
-        this.updateHubClientInfo(hubClientInfo);
-      }
-
     } catch (Exception ex) {
-      log.warn("Initial HubClientInfo sync failed, NSP will start creating the list dynamically "
-          + ex.getLocalizedMessage());
+      throw new OCPICustomException(
+          "Could not reach the hub to sync HubClientInfo: " + ex.getLocalizedMessage());
     }
+
+    if (hubClientInfoParties == null) {
+      throw new OCPICustomException("The hub returned an empty HubClientInfo response");
+    }
+    // Only the OCPI 1xxx range is a success; 2xxx (client) and 3xxx (server) codes are errors,
+    // so 2000 must not slip through and be reported as an empty-but-successful sync.
+    int statusCode = hubClientInfoParties.getStatus_code();
+    if (statusCode < 1000 || statusCode >= 2000) {
+      throw new OCPICustomException(
+          "The hub rejected the HubClientInfo request: " + hubClientInfoParties.getStatus_message());
+    }
+
+    List<HubClientInfoDTO> parties = hubClientInfoParties.getData();
+    if (parties == null || parties.isEmpty()) {
+      log.info("Hub returned no HubClientInfo parties; nothing to apply");
+      return 0;
+    }
+
+    for (HubClientInfoDTO hubClientInfo : parties) {
+      this.updateHubClientInfo(hubClientInfo);
+    }
+    log.info("Applied {} HubClientInfo parties pulled from hub {}/{}", parties.size(), hubCountryCode, hubPartyId);
+    return parties.size();
   }
 
   @Override
