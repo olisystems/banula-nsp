@@ -450,7 +450,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             // on lastUpdated, the cursor OCPI clients page on, so touching every row
             // nightly would make every location look updated to every roaming partner.
             if (SmartLocationActivationUtil.applyActiveState(candidate, today)) {
-                publishStampAndSave(candidate);
+                stampAndSave(candidate);
                 changed++;
             }
         }
@@ -485,18 +485,22 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     }
 
     /**
-     * Shared tail of every write path: evaluate the activation window, align the
-     * publish flag, stamp lastUpdated, persist, and map the result to a DTO.
+     * Shared tail of every write path: evaluate the activation window, stamp
+     * lastUpdated, persist, and map the result to a DTO.
+     *
+     * <p>
+     * The {@code publish} flag is deliberately left untouched — it belongs to the
+     * party that sent or pushed the location and is never derived from the smart
+     * location state.
      */
     private SmartLocationDTO evaluateAndSave(SmartLocation entity) {
         SmartLocationActivationUtil.applyActiveState(entity,
                 SmartLocationActivationUtil.today(applicationConfiguration.getZoneId()));
-        publishStampAndSave(entity);
+        stampAndSave(entity);
         return genericMongoMapper.toDTO(entity, SmartLocationDTO.class);
     }
 
-    private void publishStampAndSave(SmartLocation entity) {
-        entity.setPublish(SmartLocationActivationUtil.isPubliclyServable(entity.getSmartLocationState()));
+    private void stampAndSave(SmartLocation entity) {
         entity.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
         // Smart upsert: finds and preserves the existing _id.
         smartLocationRepository.save(genericMongoMapper.toMongo(entity, MongoSmartLocation.class));

@@ -281,7 +281,6 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             // Convert Location to MongoSmartLocation with smart upsert
             MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
             mongoSmartLocation.setSmartLocationState(SmartLocationState.PLAIN_OCPI);
-            mongoSmartLocation.setPublish(false);
             smartLocationRepository.save(mongoSmartLocation);
             log.info("Location saved in database! | uid: {} | collection: {}", locationDTO.getId(),
                     mongoCollectionMapper.getSmartLocationCollectionName());

@@ -71,7 +71,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(1, changed);
         assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
-        assertTrue(location.getPublish());
         verify(smartLocationRepository).save(any(MongoSmartLocation.class));
     }
 
@@ -91,13 +90,11 @@ class NSPSmartLocationServiceImplTest {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation location = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10),
                 today.minusDays(5));
-        location.setPublish(true);
         stubCandidates(location);
         stubToMongoIdentity();
 
         assertEquals(1, service.refreshActiveStates());
         assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
-        assertFalse(location.getPublish());
     }
 
     @Test
@@ -121,7 +118,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(1, service.refreshActiveStates());
         assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
-        assertTrue(location.getPublish());
     }
 
     @Test
@@ -221,7 +217,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
         assertEquals(today, result.getActiveFirstDay());
-        assertTrue(result.getPublish());
     }
 
     @Test
@@ -240,7 +235,6 @@ class NSPSmartLocationServiceImplTest {
         SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
 
         assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
     }
 
     @Test
@@ -260,7 +254,6 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getActiveFirstDay());
         assertNull(result.getActiveLastDay());
         assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
     }
 
     @Test
@@ -280,7 +273,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(SmartLocationState.ENRICHED, result.getSmartLocationState());
         assertEquals(today, result.getActiveFirstDay());
-        assertFalse(result.getPublish());
     }
 
     @Test
@@ -320,14 +312,12 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
         assertNull(result.getActiveLastDay());
-        assertTrue(result.getPublish());
     }
 
     @Test
     void patchSmartLocation_shouldArchive_whenTheLastDayIsSetInThePast() {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10), null);
-        existing.setPublish(true);
         stubExisting(existing);
         stubToMongoIdentity();
         stubToDto();
@@ -339,7 +329,6 @@ class NSPSmartLocationServiceImplTest {
         SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
 
         assertEquals(SmartLocationState.ARCHIVED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
     }
 
     /**
@@ -364,7 +353,6 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getActiveLastDay());
         assertEquals(today.minusDays(10), result.getActiveFirstDay());
         assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
-        assertTrue(result.getPublish());
     }
 
     @Test
@@ -497,7 +485,6 @@ class NSPSmartLocationServiceImplTest {
     void patchSmartLocation_shouldDropToVerified_whenTheWholeWindowIsCleared() {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(5), today.plusDays(5));
-        existing.setPublish(true);
         stubExisting(existing);
         stubToMongoIdentity();
         stubToDto();
@@ -510,7 +497,54 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getActiveFirstDay());
         assertNull(result.getActiveLastDay());
         assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
+    }
+
+    // ---------- publish is never derived ----------
+
+    @Test
+    void refreshActiveStates_shouldLeavePublishUntouched_whenTheLocationIsPromoted() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.VERIFIED, today.minusDays(1), today.plusDays(1));
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+
+        // The window still drives the state, but publish belongs to the party that
+        // sent the location and is never derived from it.
+        assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
+        assertFalse(location.getPublish());
+    }
+
+    @Test
+    void refreshActiveStates_shouldLeavePublishUntouched_whenTheLocationIsArchived() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10),
+                today.minusDays(5));
+        location.setPublish(true);
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+
+        assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
+        assertTrue(location.getPublish());
+    }
+
+    @Test
+    void patchSmartLocation_shouldStorePublishExactlyAsSent() {
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.PLAIN_OCPI, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setPublish(true);
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertTrue(result.getPublish());
     }
 
     // ---------- helpers ----------
