@@ -1,35 +1,39 @@
 package com.banula.navigationservice.service;
 
-import com.banula.navigationservice.config.ApplicationConfiguration;
-import com.banula.navigationservice.repository.SmartLocationRepository;
-import com.banula.openlib.mongodb.util.GenericMongoMapper;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
-import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
-import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
-import com.banula.openlib.ocpi.exception.OCPICustomException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.repository.SmartLocationRepository;
+import com.banula.openlib.mongodb.util.GenericMongoMapper;
+import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
+import com.banula.openlib.ocpi.custom.smartlocations.MeteringDataSource;
+import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
+import com.banula.openlib.ocpi.custom.smartlocations.MeteringDataSource;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
+import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
+import com.banula.openlib.ocpi.exception.OCPICustomException;
 
 class NSPSmartLocationServiceImplTest {
 
@@ -547,6 +551,56 @@ class NSPSmartLocationServiceImplTest {
         assertTrue(result.getPublish());
     }
 
+    // ---------- enrichment promotion ----------
+
+    @Test
+    void patchSmartLocation_shouldPromotePlainOcpiToEnriched_whenAllSmartFieldsArePresent() {
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.PLAIN_OCPI, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(SmartLocationState.ENRICHED, result.getSmartLocationState());
+    }
+
+    @Test
+    void patchSmartLocation_shouldLeaveOtherStatesAsIs_evenWhenAllSmartFieldsArePresent() {
+        for (SmartLocationState state : List.of(SmartLocationState.ENRICHED, SmartLocationState.INVALID,
+                SmartLocationState.VERIFIED)) {
+            MongoSmartLocation existing = mongoLocation(state, null, null);
+            stubExisting(existing);
+            stubToMongoIdentity();
+            stubToDto();
+
+            SmartLocationDTO dto = enrichedDto();
+            stubFromDto(dto);
+
+            SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+            assertEquals(state, result.getSmartLocationState());
+        }
+    }
+
+    @Test
+    void patchSmartLocation_shouldLeaveMissingStateAsIs_evenWhenAllSmartFieldsArePresent() {
+        MongoSmartLocation existing = mongoLocation(null, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertNull(result.getSmartLocationState());
+    }
+
     // ---------- helpers ----------
 
     private void stubCandidates(MongoSmartLocation... locations) {
@@ -603,5 +657,21 @@ class NSPSmartLocationServiceImplTest {
         location.setActiveLastDay(last);
         location.setPublish(false);
         return location;
+    }
+
+    private SmartLocationDTO enrichedDto() {
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setMarketLocationId("MKT-1");
+        dto.setMeteringLocationId("MTR-1");
+        dto.setDsoMarketPartnerId("DSO-1");
+        dto.setTsoMarketPartnerId("TSO-1");
+        dto.setMpoMarketPartnerId("MPO-1");
+        dto.setMeteringDataSource(MeteringDataSource.MSCONS);
+        dto.setDefaultSupplier(DefaultSupplier.builder()
+                .supplierMarketPartnerId("SUP-1")
+                .bkvId("BKV-1")
+                .balancingGroupEicId("EIC-1")
+                .build());
+        return dto;
     }
 }

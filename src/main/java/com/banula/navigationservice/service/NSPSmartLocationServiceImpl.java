@@ -143,10 +143,9 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
             validateActivationWindow(existingEntity);
 
-            // Automatically set state to ENRICHED if it's currently PLAIN_OCPI and all
-            // required smart fields are present
-            if ((existingEntity.getSmartLocationState() == null
-                    || existingEntity.getSmartLocationState() == SmartLocationState.PLAIN_OCPI) &&
+            // An update promotes PLAIN_OCPI to ENRICHED once every smart field is
+            // present; any other state is a deliberate decision and stays as is.
+            if (existingEntity.getSmartLocationState() == SmartLocationState.PLAIN_OCPI &&
                     isEnriched(existingEntity)) {
                 existingEntity.setSmartLocationState(SmartLocationState.ENRICHED);
             }

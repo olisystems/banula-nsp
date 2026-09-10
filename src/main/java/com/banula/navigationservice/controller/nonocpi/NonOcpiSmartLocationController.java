@@ -117,7 +117,19 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "locationId") String locationId,
             @RequestBody SmartLocationDTO smartLocationDTO,
             HttpServletRequest request) {
-        smartLocationDTO.setSmartLocationState(SmartLocationState.ENRICHED);
+        SmartLocationDTO current = nspSmartLocationService.getLocation(countryCode, party_id, locationId);
+        if (current == null) {
+            String locationKey = countryCode + "*" + party_id + "*" + locationId;
+            return ResponseEntity.status(404).body(
+                    new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
+        }
+
+        // Enrichment promotes a location out of PLAIN_OCPI only; every other
+        // state is a deliberate decision and survives an update untouched.
+        if (current.getSmartLocationState() == SmartLocationState.PLAIN_OCPI) {
+            smartLocationDTO.setSmartLocationState(SmartLocationState.ENRICHED);
+        }
+
         SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, party_id, locationId,
                 smartLocationDTO);
 
