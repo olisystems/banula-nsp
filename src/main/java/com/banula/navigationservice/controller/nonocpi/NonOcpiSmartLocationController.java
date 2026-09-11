@@ -27,7 +27,6 @@ import com.banula.navigationservice.service.LocationSyncService;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
 import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.util.Constants;
@@ -122,12 +121,6 @@ public class NonOcpiSmartLocationController {
             String locationKey = countryCode + "*" + party_id + "*" + locationId;
             return ResponseEntity.status(404).body(
                     new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
-        }
-
-        // Enrichment promotes a location out of PLAIN_OCPI only; every other
-        // state is a deliberate decision and survives an update untouched.
-        if (current.getSmartLocationState() == SmartLocationState.PLAIN_OCPI) {
-            smartLocationDTO.setSmartLocationState(SmartLocationState.ENRICHED);
         }
 
         SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, party_id, locationId,
