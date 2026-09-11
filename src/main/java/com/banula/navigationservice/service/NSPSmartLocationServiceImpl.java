@@ -18,11 +18,13 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.dto.BulkImportResultDTO;
+import com.banula.navigationservice.event.SmartLocationsChangedEvent;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
@@ -47,6 +49,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     private final SmartLocationRepository smartLocationRepository;
     private final GenericMongoMapper genericMongoMapper;
     private final ApplicationConfiguration applicationConfiguration;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId) {
@@ -143,10 +146,9 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
             validateActivationWindow(existingEntity);
 
-            // Automatically set state to ENRICHED if it's currently PLAIN_OCPI and all
-            // required smart fields are present
-            if ((existingEntity.getSmartLocationState() == null
-                    || existingEntity.getSmartLocationState() == SmartLocationState.PLAIN_OCPI) &&
+            // An update promotes PLAIN_OCPI to ENRICHED once every smart field is
+            // present; any other state is a deliberate decision and stays as is.
+            if (existingEntity.getSmartLocationState() == SmartLocationState.PLAIN_OCPI &&
                     isEnriched(existingEntity)) {
                 existingEntity.setSmartLocationState(SmartLocationState.ENRICHED);
             }
@@ -450,7 +452,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             // on lastUpdated, the cursor OCPI clients page on, so touching every row
             // nightly would make every location look updated to every roaming partner.
             if (SmartLocationActivationUtil.applyActiveState(candidate, today)) {
-                publishStampAndSave(candidate);
+                stampAndSave(candidate);
                 changed++;
             }
         }
@@ -485,20 +487,25 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     }
 
     /**
-     * Shared tail of every write path: evaluate the activation window, align the
-     * publish flag, stamp lastUpdated, persist, and map the result to a DTO.
+     * Shared tail of every write path: evaluate the activation window, stamp
+     * lastUpdated, persist, and map the result to a DTO.
+     *
+     * <p>
+     * The {@code publish} flag is deliberately left untouched — it belongs to the
+     * party that sent or pushed the location and is never derived from the smart
+     * location state.
      */
     private SmartLocationDTO evaluateAndSave(SmartLocation entity) {
         SmartLocationActivationUtil.applyActiveState(entity,
                 SmartLocationActivationUtil.today(applicationConfiguration.getZoneId()));
-        publishStampAndSave(entity);
+        stampAndSave(entity);
         return genericMongoMapper.toDTO(entity, SmartLocationDTO.class);
     }
 
-    private void publishStampAndSave(SmartLocation entity) {
-        entity.setPublish(SmartLocationActivationUtil.isPubliclyServable(entity.getSmartLocationState()));
+    private void stampAndSave(SmartLocation entity) {
         entity.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
         // Smart upsert: finds and preserves the existing _id.
         smartLocationRepository.save(genericMongoMapper.toMongo(entity, MongoSmartLocation.class));
+        eventPublisher.publishEvent(new SmartLocationsChangedEvent(this));
     }
 }

@@ -1,35 +1,41 @@
 package com.banula.navigationservice.service;
 
-import com.banula.navigationservice.config.ApplicationConfiguration;
-import com.banula.navigationservice.repository.SmartLocationRepository;
-import com.banula.openlib.mongodb.util.GenericMongoMapper;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
-import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
-import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
-import com.banula.openlib.ocpi.exception.OCPICustomException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import org.springframework.context.ApplicationEventPublisher;
+
+import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.repository.SmartLocationRepository;
+import com.banula.openlib.mongodb.util.GenericMongoMapper;
+import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
+import com.banula.openlib.ocpi.custom.smartlocations.MeteringDataSource;
+import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
+import com.banula.openlib.ocpi.custom.smartlocations.MeteringDataSource;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocation;
+import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
+import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
+import com.banula.openlib.ocpi.custom.smartlocations.mongo.MongoSmartLocation;
+import com.banula.openlib.ocpi.exception.OCPICustomException;
 
 class NSPSmartLocationServiceImplTest {
 
@@ -46,6 +52,9 @@ class NSPSmartLocationServiceImplTest {
     @Mock
     private ApplicationConfiguration applicationConfiguration;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private NSPSmartLocationServiceImpl service;
 
     private AutoCloseable mocks;
@@ -54,7 +63,7 @@ class NSPSmartLocationServiceImplTest {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         service = new NSPSmartLocationServiceImpl(smartLocationRepository, genericMongoMapper,
-                applicationConfiguration);
+                applicationConfiguration, eventPublisher);
         when(applicationConfiguration.getZoneId()).thenReturn("Europe/Berlin");
     }
 
@@ -71,7 +80,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(1, changed);
         assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
-        assertTrue(location.getPublish());
         verify(smartLocationRepository).save(any(MongoSmartLocation.class));
     }
 
@@ -91,13 +99,11 @@ class NSPSmartLocationServiceImplTest {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation location = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10),
                 today.minusDays(5));
-        location.setPublish(true);
         stubCandidates(location);
         stubToMongoIdentity();
 
         assertEquals(1, service.refreshActiveStates());
         assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
-        assertFalse(location.getPublish());
     }
 
     @Test
@@ -121,7 +127,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(1, service.refreshActiveStates());
         assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
-        assertTrue(location.getPublish());
     }
 
     @Test
@@ -221,7 +226,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
         assertEquals(today, result.getActiveFirstDay());
-        assertTrue(result.getPublish());
     }
 
     @Test
@@ -240,7 +244,6 @@ class NSPSmartLocationServiceImplTest {
         SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
 
         assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
     }
 
     @Test
@@ -260,7 +263,6 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getActiveFirstDay());
         assertNull(result.getActiveLastDay());
         assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
     }
 
     @Test
@@ -280,7 +282,6 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(SmartLocationState.ENRICHED, result.getSmartLocationState());
         assertEquals(today, result.getActiveFirstDay());
-        assertFalse(result.getPublish());
     }
 
     @Test
@@ -320,14 +321,12 @@ class NSPSmartLocationServiceImplTest {
 
         assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
         assertNull(result.getActiveLastDay());
-        assertTrue(result.getPublish());
     }
 
     @Test
     void patchSmartLocation_shouldArchive_whenTheLastDayIsSetInThePast() {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10), null);
-        existing.setPublish(true);
         stubExisting(existing);
         stubToMongoIdentity();
         stubToDto();
@@ -339,7 +338,6 @@ class NSPSmartLocationServiceImplTest {
         SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
 
         assertEquals(SmartLocationState.ARCHIVED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
     }
 
     /**
@@ -364,7 +362,6 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getActiveLastDay());
         assertEquals(today.minusDays(10), result.getActiveFirstDay());
         assertEquals(SmartLocationState.ACTIVE, result.getSmartLocationState());
-        assertTrue(result.getPublish());
     }
 
     @Test
@@ -497,7 +494,6 @@ class NSPSmartLocationServiceImplTest {
     void patchSmartLocation_shouldDropToVerified_whenTheWholeWindowIsCleared() {
         LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
         MongoSmartLocation existing = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(5), today.plusDays(5));
-        existing.setPublish(true);
         stubExisting(existing);
         stubToMongoIdentity();
         stubToDto();
@@ -510,7 +506,104 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getActiveFirstDay());
         assertNull(result.getActiveLastDay());
         assertEquals(SmartLocationState.VERIFIED, result.getSmartLocationState());
-        assertFalse(result.getPublish());
+    }
+
+    // ---------- publish is never derived ----------
+
+    @Test
+    void refreshActiveStates_shouldLeavePublishUntouched_whenTheLocationIsPromoted() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.VERIFIED, today.minusDays(1), today.plusDays(1));
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+
+        // The window still drives the state, but publish belongs to the party that
+        // sent the location and is never derived from it.
+        assertEquals(SmartLocationState.ACTIVE, location.getSmartLocationState());
+        assertFalse(location.getPublish());
+    }
+
+    @Test
+    void refreshActiveStates_shouldLeavePublishUntouched_whenTheLocationIsArchived() {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Europe/Berlin"));
+        MongoSmartLocation location = mongoLocation(SmartLocationState.ACTIVE, today.minusDays(10),
+                today.minusDays(5));
+        location.setPublish(true);
+        stubCandidates(location);
+        stubToMongoIdentity();
+
+        assertEquals(1, service.refreshActiveStates());
+
+        assertEquals(SmartLocationState.ARCHIVED, location.getSmartLocationState());
+        assertTrue(location.getPublish());
+    }
+
+    @Test
+    void patchSmartLocation_shouldStorePublishExactlyAsSent() {
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.PLAIN_OCPI, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setPublish(true);
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertTrue(result.getPublish());
+    }
+
+    // ---------- enrichment promotion ----------
+
+    @Test
+    void patchSmartLocation_shouldPromotePlainOcpiToEnriched_whenAllSmartFieldsArePresent() {
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.PLAIN_OCPI, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals(SmartLocationState.ENRICHED, result.getSmartLocationState());
+    }
+
+    @Test
+    void patchSmartLocation_shouldLeaveOtherStatesAsIs_evenWhenAllSmartFieldsArePresent() {
+        for (SmartLocationState state : List.of(SmartLocationState.ENRICHED, SmartLocationState.INVALID,
+                SmartLocationState.VERIFIED)) {
+            MongoSmartLocation existing = mongoLocation(state, null, null);
+            stubExisting(existing);
+            stubToMongoIdentity();
+            stubToDto();
+
+            SmartLocationDTO dto = enrichedDto();
+            stubFromDto(dto);
+
+            SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+            assertEquals(state, result.getSmartLocationState());
+        }
+    }
+
+    @Test
+    void patchSmartLocation_shouldLeaveMissingStateAsIs_evenWhenAllSmartFieldsArePresent() {
+        MongoSmartLocation existing = mongoLocation(null, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertNull(result.getSmartLocationState());
     }
 
     // ---------- helpers ----------
@@ -569,5 +662,21 @@ class NSPSmartLocationServiceImplTest {
         location.setActiveLastDay(last);
         location.setPublish(false);
         return location;
+    }
+
+    private SmartLocationDTO enrichedDto() {
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setMarketLocationId("MKT-1");
+        dto.setMeteringLocationId("MTR-1");
+        dto.setDsoMarketPartnerId("DSO-1");
+        dto.setTsoMarketPartnerId("TSO-1");
+        dto.setMpoMarketPartnerId("MPO-1");
+        dto.setMeteringDataSource(MeteringDataSource.MSCONS);
+        dto.setDefaultSupplier(DefaultSupplier.builder()
+                .supplierMarketPartnerId("SUP-1")
+                .bkvId("BKV-1")
+                .balancingGroupEicId("EIC-1")
+                .build());
+        return dto;
     }
 }

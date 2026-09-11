@@ -114,7 +114,6 @@ public class NSPLocationController {
             @PathVariable(value = "countryCode") String countryCode,
             @PathVariable(value = "partyId") String partyId,
             @PathVariable(value = "locationId") String locationId) {
-        locationDTO.setPublish(false);
         locationService.putLocation(locationDTO, countryCode, partyId, locationId);
         return ResponseEntity.ok(new OcpiResponse<>(null));
     }

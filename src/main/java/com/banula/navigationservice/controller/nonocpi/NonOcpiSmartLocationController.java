@@ -27,7 +27,6 @@ import com.banula.navigationservice.service.LocationSyncService;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
 import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.util.Constants;
@@ -117,7 +116,13 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "locationId") String locationId,
             @RequestBody SmartLocationDTO smartLocationDTO,
             HttpServletRequest request) {
-        smartLocationDTO.setSmartLocationState(SmartLocationState.ENRICHED);
+        SmartLocationDTO current = nspSmartLocationService.getLocation(countryCode, party_id, locationId);
+        if (current == null) {
+            String locationKey = countryCode + "*" + party_id + "*" + locationId;
+            return ResponseEntity.status(404).body(
+                    new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
+        }
+
         SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, party_id, locationId,
                 smartLocationDTO);
 
