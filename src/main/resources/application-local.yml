@@ -24,3 +24,7 @@ location-sync:
 
 api:
   url: http://localhost:8085
+
+cdr-adapter:
+  url: http://localhost:8082
+  smart-location-sync-enabled: true

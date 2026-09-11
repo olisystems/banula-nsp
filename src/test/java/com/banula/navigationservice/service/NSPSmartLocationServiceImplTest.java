@@ -22,6 +22,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import org.springframework.context.ApplicationEventPublisher;
+
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
@@ -50,6 +52,9 @@ class NSPSmartLocationServiceImplTest {
     @Mock
     private ApplicationConfiguration applicationConfiguration;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private NSPSmartLocationServiceImpl service;
 
     private AutoCloseable mocks;
@@ -58,7 +63,7 @@ class NSPSmartLocationServiceImplTest {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         service = new NSPSmartLocationServiceImpl(smartLocationRepository, genericMongoMapper,
-                applicationConfiguration);
+                applicationConfiguration, eventPublisher);
         when(applicationConfiguration.getZoneId()).thenReturn("Europe/Berlin");
     }
 

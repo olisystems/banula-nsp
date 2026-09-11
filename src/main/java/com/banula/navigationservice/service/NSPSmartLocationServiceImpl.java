@@ -18,11 +18,13 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.dto.BulkImportResultDTO;
+import com.banula.navigationservice.event.SmartLocationsChangedEvent;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
@@ -47,6 +49,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     private final SmartLocationRepository smartLocationRepository;
     private final GenericMongoMapper genericMongoMapper;
     private final ApplicationConfiguration applicationConfiguration;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<SmartLocationDTO> getLocationsByParty(String countryCode, String partyId) {
@@ -503,5 +506,6 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         entity.setLastUpdated(LocalDateTime.now(ZoneOffset.UTC));
         // Smart upsert: finds and preserves the existing _id.
         smartLocationRepository.save(genericMongoMapper.toMongo(entity, MongoSmartLocation.class));
+        eventPublisher.publishEvent(new SmartLocationsChangedEvent(this));
     }
 }

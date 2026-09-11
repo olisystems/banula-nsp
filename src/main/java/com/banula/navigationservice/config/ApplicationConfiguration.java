@@ -66,6 +66,12 @@ public class ApplicationConfiguration implements PlatformConfiguration {
     @Value("${location-sync.welcome-lookback-days:3650}")
     private Long locationSyncWelcomeLookbackDays;
 
+    @Value("${cdr-adapter.url:}")
+    private String cdrAdapterUrl;
+
+    @Value("${cdr-adapter.smart-location-sync-enabled:true}")
+    private Boolean cdrAdapterSyncEnabled;
+
     @Override
     public VersionNumber getOcpiVersion() {
         return VersionNumber.fromValue(ocpiVersion);

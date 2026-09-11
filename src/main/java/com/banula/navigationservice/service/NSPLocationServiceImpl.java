@@ -5,11 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.banula.navigationservice.config.MongoCollectionMapper;
+import com.banula.navigationservice.event.SmartLocationsChangedEvent;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
@@ -37,6 +39,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
     private final SmartLocationRepository smartLocationRepository;
     private final MongoCollectionMapper mongoCollectionMapper;
     private final GenericMongoMapper genericMongoMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     // returns either LocationDTO or EVSE or Connector object
     @Override
@@ -168,7 +171,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             // Copy properties from existingLocation to mongoSmartLocation and convert
             mongoSmartLocation = genericMongoMapper.toMongo(existingLocation, MongoSmartLocation.class);
 
-            smartLocationRepository.save(mongoSmartLocation);
+            saveAndNotify(mongoSmartLocation);
         } catch (OCPICustomException e) {
             throw e;
         } catch (Exception e) {
@@ -255,7 +258,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             // Convert to MongoEntity with updated timestamp
             mongoSmartLocation = genericMongoMapper.toMongo(mongoSmartLocation, MongoSmartLocation.class);
 
-            smartLocationRepository.save(mongoSmartLocation);
+            saveAndNotify(mongoSmartLocation);
         } catch (OCPICustomException e) {
             throw e;
         } catch (Exception e) {
@@ -281,7 +284,7 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             // Convert Location to MongoSmartLocation with smart upsert
             MongoSmartLocation mongoSmartLocation = genericMongoMapper.toMongo(location, MongoSmartLocation.class);
             mongoSmartLocation.setSmartLocationState(SmartLocationState.PLAIN_OCPI);
-            smartLocationRepository.save(mongoSmartLocation);
+            saveAndNotify(mongoSmartLocation);
             log.info("Location saved in database! | uid: {} | collection: {}", locationDTO.getId(),
                     mongoCollectionMapper.getSmartLocationCollectionName());
         } catch (Exception e) {
@@ -301,12 +304,21 @@ public class NSPLocationServiceImpl implements NSPLocationService {
             ModelPatcherUtil.locationPatcher(mongoExistingLocation, incompleteLocation);
             // Convert to MongoEntity with updated timestamp
             mongoExistingLocation = genericMongoMapper.toMongo(mongoExistingLocation, MongoSmartLocation.class);
-            smartLocationRepository.save(mongoExistingLocation);
+            saveAndNotify(mongoExistingLocation);
         } catch (Exception e) {
             String errorMessage = "Error happened while patching location: " + e.getLocalizedMessage();
             log.info(errorMessage);
             throw new OCPICustomException(errorMessage);
         }
+    }
+
+    /**
+     * Every write path of this service ends here: the CDR Adapter mirrors the smart
+     * locations, so it has to learn about a change as soon as it is persisted.
+     */
+    private void saveAndNotify(MongoSmartLocation mongoSmartLocation) {
+        smartLocationRepository.save(mongoSmartLocation);
+        eventPublisher.publishEvent(new SmartLocationsChangedEvent(this));
     }
 
     @Override
