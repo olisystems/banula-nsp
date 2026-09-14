@@ -15,6 +15,13 @@ public interface NSPSmartLocationService {
 
         SmartLocationDTO getLocationByMaloId(String maloId);
 
+        /**
+         * Removes the smart location and mirrors the removal outwards.
+         *
+         * @return the deleted location, or {@code null} when it does not exist
+         */
+        SmartLocationDTO deleteLocation(String countryCode, String partyId, String locationId);
+
         List<SmartLocationDTO> getAllLocations();
 
         Set<String> getPartySet();

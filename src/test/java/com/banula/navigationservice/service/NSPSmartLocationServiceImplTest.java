@@ -25,6 +25,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.context.ApplicationEventPublisher;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.event.SmartLocationsChangedEvent;
 import com.banula.navigationservice.repository.SmartLocationRepository;
 import com.banula.openlib.mongodb.util.GenericMongoMapper;
 import com.banula.openlib.ocpi.custom.smartlocations.DefaultSupplier;
@@ -65,6 +66,34 @@ class NSPSmartLocationServiceImplTest {
         service = new NSPSmartLocationServiceImpl(smartLocationRepository, genericMongoMapper,
                 applicationConfiguration, eventPublisher);
         when(applicationConfiguration.getZoneId()).thenReturn("Europe/Berlin");
+    }
+
+    // ---------- deleteLocation ----------
+
+    @Test
+    void deleteLocation_shouldRemoveTheLocationAndMirrorTheChange() {
+        MongoSmartLocation location = mongoLocation(SmartLocationState.ENRICHED, null, null);
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setId(LOCATION_ID);
+        when(smartLocationRepository.findByCompoundIndex(COUNTRY_CODE, PARTY_ID, LOCATION_ID))
+                .thenReturn(Optional.of(location));
+        when(genericMongoMapper.mongoToDTO(location, SmartLocation.class, SmartLocationDTO.class)).thenReturn(dto);
+
+        SmartLocationDTO deleted = service.deleteLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID);
+
+        assertEquals(LOCATION_ID, deleted.getId());
+        verify(smartLocationRepository).delete(location);
+        verify(eventPublisher).publishEvent(any(SmartLocationsChangedEvent.class));
+    }
+
+    @Test
+    void deleteLocation_shouldReturnNull_whenTheLocationDoesNotExist() {
+        when(smartLocationRepository.findByCompoundIndex(COUNTRY_CODE, PARTY_ID, LOCATION_ID))
+                .thenReturn(Optional.empty());
+
+        assertNull(service.deleteLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID));
+        verify(smartLocationRepository, never()).delete(any(MongoSmartLocation.class));
+        verify(eventPublisher, never()).publishEvent(any(SmartLocationsChangedEvent.class));
     }
 
     // ---------- refreshActiveStates ----------
