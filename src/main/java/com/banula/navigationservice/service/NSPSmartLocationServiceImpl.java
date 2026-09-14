@@ -72,6 +72,22 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
     }
 
     @Override
+    public SmartLocationDTO deleteLocation(String countryCode, String partyId, String locationId) {
+        MongoSmartLocation smartLocation = smartLocationRepository
+                .findByCompoundIndex(countryCode, partyId, locationId)
+                .orElse(null);
+        if (smartLocation == null) {
+            return null;
+        }
+        SmartLocationDTO deleted = genericMongoMapper.mongoToDTO(smartLocation, SmartLocation.class,
+                SmartLocationDTO.class);
+        smartLocationRepository.delete(smartLocation);
+        log.info("Deleted smart location {}*{}*{}", countryCode, partyId, locationId);
+        eventPublisher.publishEvent(new SmartLocationsChangedEvent(this));
+        return deleted;
+    }
+
+    @Override
     public SmartLocationDTO patchSmartLocation(String countryCode, String partyId, String id,
             SmartLocationDTO smartLocationDTO) {
         return patchSmartLocation(countryCode, partyId, id, smartLocationDTO, false, false);
