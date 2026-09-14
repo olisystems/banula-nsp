@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,7 +28,6 @@ import com.banula.navigationservice.service.LocationSyncService;
 import com.banula.navigationservice.service.NSPSmartLocationService;
 import com.banula.openlib.ocpi.annotation.LogRequest;
 import com.banula.openlib.ocpi.annotation.OcpiGetCompositeId;
-import com.banula.openlib.ocpi.custom.smartlocations.SmartLocationState;
 import com.banula.openlib.ocpi.custom.smartlocations.dto.SmartLocationDTO;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.util.Constants;
@@ -117,7 +117,13 @@ public class NonOcpiSmartLocationController {
             @PathVariable(value = "locationId") String locationId,
             @RequestBody SmartLocationDTO smartLocationDTO,
             HttpServletRequest request) {
-        smartLocationDTO.setSmartLocationState(SmartLocationState.ENRICHED);
+        SmartLocationDTO current = nspSmartLocationService.getLocation(countryCode, party_id, locationId);
+        if (current == null) {
+            String locationKey = countryCode + "*" + party_id + "*" + locationId;
+            return ResponseEntity.status(404).body(
+                    new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
+        }
+
         SmartLocationDTO updatedLocation = nspSmartLocationService.patchSmartLocation(countryCode, party_id, locationId,
                 smartLocationDTO);
 
@@ -165,6 +171,29 @@ public class NonOcpiSmartLocationController {
         }
 
         return ResponseEntity.ok(new OcpiResponse<>(updatedLocation));
+    }
+
+    @Operation(summary = "Delete a smart location", description = "Removes the smart location identified by country code, party ID and location ID, and pushes the change to the CDR Adapter mirror. "
+            + "A location that came from a CPO is stored again if a later location pull returns it.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Location deleted; the deleted location is returned", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Location not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OcpiResponse.class)))
+    })
+    @DeleteMapping("/{countryCode}/{partyId}/{locationId}")
+    @LogRequest
+    @CrossOrigin
+    public ResponseEntity<OcpiResponse<SmartLocationDTO>> deleteSmartLocation(
+            @Parameter(description = "Country code", example = "DE") @PathVariable(value = "countryCode") String countryCode,
+            @Parameter(description = "Party ID", example = "ABC") @PathVariable(value = "partyId") String partyId,
+            @Parameter(description = "Location ID", example = "ARCMIND1") @PathVariable(value = "locationId") String locationId) {
+        SmartLocationDTO deletedLocation = nspSmartLocationService.deleteLocation(countryCode, partyId, locationId);
+        if (deletedLocation == null) {
+            String locationKey = countryCode + "*" + partyId + "*" + locationId;
+            return ResponseEntity.status(404).body(
+                    new OcpiResponse<>(null, 2003, "Location " + locationKey + " not found"));
+        }
+        return ResponseEntity.ok(new OcpiResponse<>(deletedLocation, Constants.STATUS_CODE_OK,
+                "Location deleted successfully"));
     }
 
     @Operation(summary = "Re-evaluate smart location active states", description = "Runs the same evaluation as the daily 00:00:05 job in the configured api.zone-id time zone: a location whose activation window covers today becomes ACTIVE, one whose window has passed becomes ARCHIVED, and one whose window has not started yet waits as VERIFIED. Idempotent — running it twice in the same day changes nothing. Returns the number of locations whose state actually changed.")

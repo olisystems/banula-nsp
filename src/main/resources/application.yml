@@ -46,6 +46,11 @@ location-sync:
   lookback-hours: ${LOCATION_SYNC_LOOKBACK_HOURS:1}
   welcome-lookback-days: ${LOCATION_SYNC_WELCOME_LOOKBACK_DAYS:3650}
 
+# Mirror every smart location change into the CDR Adapter's copy of them
+cdr-adapter:
+  url: ${CDR_ADAPTER_URL:http://cdr-adapter-service}
+  smart-location-sync-enabled: ${CDR_ADAPTER_SMART_LOCATION_SYNC_ENABLED:true}
+
 springdoc:
   writer-with-order-by-keys: true
   swagger-ui:
