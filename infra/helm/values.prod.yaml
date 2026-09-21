@@ -1,9 +1,6 @@
 oli-app:
   fullnameOverride: "banula-navigation-service-prod"
 
-  image:
-    tag: "main"
-
   resources:
     requests:
       cpu: 100m
