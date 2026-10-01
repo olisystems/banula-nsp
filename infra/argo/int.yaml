@@ -5,6 +5,7 @@ metadata:
   namespace: argocd
   labels:
     repo: banula-nsp
+    env: int
 spec:
   project: banula
   source:
