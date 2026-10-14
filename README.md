@@ -144,6 +144,8 @@ The Smart Locations module extends standard OCPI locations with additional featu
 
 Use the React UI or the API endpoints to manage smart location data.
 
+**Unique MeLo / MaLo.** A `metering_location_id`, `market_location_id` or `malo` belongs to one smart location only: two locations sharing one would read the same meter readings and settle the same energy twice. A smart location update (POST/PATCH `/api/v1/internal/locations/{cc}/{party}/{id}` and the CSV bulk import) that sets a value another location already holds is rejected with status `2001` and names that location. At startup each of the three fields also gets a partial unique index (`unique_meteringLocationId`, `unique_marketLocationId`, `unique_malo`, only where the value is set); while stored data still holds a duplicate the index is skipped and the conflicting locations are logged as ERROR, and it is built on the first start after the data is fixed. The CDR Adapter builds the same indexes on its mirror.
+
 ## Troubleshooting
 
 Common issues and their solutions:
