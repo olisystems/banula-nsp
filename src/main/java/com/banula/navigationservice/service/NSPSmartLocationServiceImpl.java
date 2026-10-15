@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.config.SmartLocationUniqueIndexConfig;
 import com.banula.navigationservice.dto.BulkImportResultDTO;
 import com.banula.navigationservice.event.SmartLocationsChangedEvent;
 import com.banula.navigationservice.repository.SmartLocationRepository;
@@ -179,9 +180,12 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
         } catch (OCPICustomException e) {
             throw e;
         } catch (DuplicateKeyException e) {
+            if (!SmartLocationUniqueIndexConfig.isIdentifierConflict(e)) {
+                throw new RuntimeException("Unexpected error while patching smart location", e);
+            }
             // another request took the same MeLo/MaLo between the check and the save
             throw new OCPICustomException(
-                    "metering_location_id, market_location_id and malo must be unique: " + e.getMessage(),
+                    "metering_location_id, market_location_id and malo must be unique",
                     Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         } catch (Exception e) {
             throw new RuntimeException("Unexpected error while patching smart location", e);

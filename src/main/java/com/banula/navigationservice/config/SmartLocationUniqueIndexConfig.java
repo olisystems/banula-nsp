@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.bson.Document;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
@@ -47,12 +48,22 @@ public class SmartLocationUniqueIndexConfig implements InitializingBean {
                 mongo.indexOps(collection).ensureIndex(new Index()
                         .on(field, Sort.Direction.ASC)
                         .unique()
-                        .named("unique_" + field)
+                        .named(indexName(field))
                         .partial(PartialIndexFilter.of(setValue(field))));
             } catch (Exception e) {
                 log.error("Unique index on {}.{} not created: {}", collection, field, e.getMessage(), e);
             }
         }
+    }
+
+    static String indexName(String field) {
+        return "unique_" + field;
+    }
+
+    /** Whether a duplicate-key failure was raised by one of the unique MeLo/MaLo indexes. */
+    public static boolean isIdentifierConflict(DuplicateKeyException e) {
+        String message = String.valueOf(e.getMessage());
+        return FIELDS.stream().anyMatch(field -> message.contains("index: " + indexName(field) + " "));
     }
 
     /** Only documents whose field holds a non-empty string take part in the index. */

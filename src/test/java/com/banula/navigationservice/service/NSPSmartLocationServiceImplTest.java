@@ -3,6 +3,7 @@ package com.banula.navigationservice.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -707,12 +708,31 @@ class NSPSmartLocationServiceImplTest {
         stubToDto();
         SmartLocationDTO dto = enrichedDto();
         stubFromDto(dto);
-        when(smartLocationRepository.save(any())).thenThrow(new DuplicateKeyException("E11000 unique_meteringLocationId"));
+        when(smartLocationRepository.save(any())).thenThrow(new DuplicateKeyException(
+                "E11000 duplicate key error collection: db.smartLocations index: unique_meteringLocationId dup key: { meteringLocationId: \"DE1\" }"));
 
         OCPICustomException e = assertThrows(OCPICustomException.class,
                 () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
 
-        assertTrue(e.getMessage().contains("must be unique"));
+        assertEquals("metering_location_id, market_location_id and malo must be unique", e.getMessage());
+    }
+
+    @Test
+    void patchSmartLocation_shouldReportAnOtherDuplicateKeyAsUnexpected() {
+        stubExisting(mongoLocation(SmartLocationState.ENRICHED, null, null));
+        stubToMongoIdentity();
+        stubToDto();
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+        DuplicateKeyException cause = new DuplicateKeyException(
+                "E11000 duplicate key error collection: db.smartLocations index: _id_ dup key: { _id: \"x\" }");
+        when(smartLocationRepository.save(any())).thenThrow(cause);
+
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertFalse(e instanceof OCPICustomException);
+        assertSame(cause, e.getCause());
     }
 
     // ---------- helpers ----------
