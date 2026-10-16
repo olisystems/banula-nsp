@@ -20,6 +20,15 @@ public interface SmartLocationRepository
 
   Optional<MongoSmartLocation> findByMarketLocationId(String maloId);
 
+  /** Every smart location holding the MeLo — at most one once the unique index is in place. */
+  List<MongoSmartLocation> findAllByMeteringLocationId(String meteringLocationId);
+
+  /** Every smart location holding the market location id — at most one once the unique index is in place. */
+  List<MongoSmartLocation> findAllByMarketLocationId(String marketLocationId);
+
+  /** Every smart location holding the MaLo — at most one once the unique index is in place. */
+  List<MongoSmartLocation> findAllByMalo(String malo);
+
   /**
    * Find active smart locations with optional date range filtering and
    * pagination.

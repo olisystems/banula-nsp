@@ -3,6 +3,7 @@ package com.banula.navigationservice.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DuplicateKeyException;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
 import com.banula.navigationservice.event.SmartLocationsChangedEvent;
@@ -635,7 +637,113 @@ class NSPSmartLocationServiceImplTest {
         assertNull(result.getSmartLocationState());
     }
 
+    // ---------- unique MeLo / MaLo ----------
+
+    @Test
+    void patchSmartLocation_shouldRejectAMeloUsedByAnotherLocation() {
+        stubExisting(mongoLocation(SmartLocationState.ENRICHED, null, null));
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+        when(smartLocationRepository.findAllByMeteringLocationId("MTR-1"))
+                .thenReturn(List.of(otherLocation("LOCOTHER")));
+
+        OCPICustomException e = assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertTrue(e.getMessage().contains("metering_location_id 'MTR-1' is already used by smart location DE*ABC*LOCOTHER"));
+        verify(smartLocationRepository, never()).save(any());
+    }
+
+    @Test
+    void patchSmartLocation_shouldRejectAMaloUsedByAnotherLocation() {
+        stubExisting(mongoLocation(SmartLocationState.ENRICHED, null, null));
+        SmartLocationDTO dto = enrichedDto();
+        dto.setMalo("51709804123");
+        stubFromDto(dto);
+        when(smartLocationRepository.findAllByMalo("51709804123")).thenReturn(List.of(otherLocation("LOCOTHER")));
+
+        OCPICustomException e = assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertTrue(e.getMessage().startsWith("malo '51709804123'"));
+        verify(smartLocationRepository, never()).save(any());
+    }
+
+    @Test
+    void patchSmartLocation_shouldAcceptIdentifiersHeldOnlyByTheLocationItself() {
+        MongoSmartLocation existing = mongoLocation(SmartLocationState.ENRICHED, null, null);
+        stubExisting(existing);
+        stubToMongoIdentity();
+        stubToDto();
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+        when(smartLocationRepository.findAllByMeteringLocationId("MTR-1")).thenReturn(List.of(existing));
+        when(smartLocationRepository.findAllByMarketLocationId("MKT-1")).thenReturn(List.of(existing));
+
+        SmartLocationDTO result = service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        assertEquals("MTR-1", result.getMeteringLocationId());
+        verify(smartLocationRepository).save(any());
+    }
+
+    @Test
+    void patchSmartLocation_shouldNotCompareBlankIdentifiers() {
+        stubExisting(mongoLocation(SmartLocationState.PLAIN_OCPI, null, null));
+        stubToMongoIdentity();
+        stubToDto();
+        SmartLocationDTO dto = new SmartLocationDTO();
+        dto.setMalo("");
+        stubFromDto(dto);
+
+        service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto);
+
+        verify(smartLocationRepository, never()).findAllByMalo(any());
+        verify(smartLocationRepository, never()).findAllByMeteringLocationId(any());
+    }
+
+    @Test
+    void patchSmartLocation_shouldReportADuplicateKeyRaceAsInvalidParameters() {
+        stubExisting(mongoLocation(SmartLocationState.ENRICHED, null, null));
+        stubToMongoIdentity();
+        stubToDto();
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+        when(smartLocationRepository.save(any())).thenThrow(new DuplicateKeyException(
+                "E11000 duplicate key error collection: db.smartLocations index: unique_meteringLocationId dup key: { meteringLocationId: \"DE1\" }"));
+
+        OCPICustomException e = assertThrows(OCPICustomException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertEquals("metering_location_id, market_location_id and malo must be unique", e.getMessage());
+    }
+
+    @Test
+    void patchSmartLocation_shouldReportAnOtherDuplicateKeyAsUnexpected() {
+        stubExisting(mongoLocation(SmartLocationState.ENRICHED, null, null));
+        stubToMongoIdentity();
+        stubToDto();
+        SmartLocationDTO dto = enrichedDto();
+        stubFromDto(dto);
+        DuplicateKeyException cause = new DuplicateKeyException(
+                "E11000 duplicate key error collection: db.smartLocations index: _id_ dup key: { _id: \"x\" }");
+        when(smartLocationRepository.save(any())).thenThrow(cause);
+
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> service.patchSmartLocation(COUNTRY_CODE, PARTY_ID, LOCATION_ID, dto));
+
+        assertFalse(e instanceof OCPICustomException);
+        assertSame(cause, e.getCause());
+    }
+
     // ---------- helpers ----------
+
+    private MongoSmartLocation otherLocation(String id) {
+        MongoSmartLocation other = new MongoSmartLocation();
+        other.setCountryCode(COUNTRY_CODE);
+        other.setPartyId(PARTY_ID);
+        other.setId(id);
+        return other;
+    }
 
     private void stubCandidates(MongoSmartLocation... locations) {
         when(smartLocationRepository.findBySmartLocationStateIn(any())).thenReturn(List.of(locations));

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
@@ -19,10 +20,12 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
+import com.banula.navigationservice.config.SmartLocationUniqueIndexConfig;
 import com.banula.navigationservice.dto.BulkImportResultDTO;
 import com.banula.navigationservice.event.SmartLocationsChangedEvent;
 import com.banula.navigationservice.repository.SmartLocationRepository;
@@ -161,6 +164,7 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
             }
 
             validateActivationWindow(existingEntity);
+            validateUniqueIdentifiers(existingEntity);
 
             // An update promotes PLAIN_OCPI to ENRICHED once every smart field is
             // present; any other state is a deliberate decision and stays as is.
@@ -175,9 +179,50 @@ public class NSPSmartLocationServiceImpl implements NSPSmartLocationService {
 
         } catch (OCPICustomException e) {
             throw e;
+        } catch (DuplicateKeyException e) {
+            if (!SmartLocationUniqueIndexConfig.isIdentifierConflict(e)) {
+                throw new RuntimeException("Unexpected error while patching smart location", e);
+            }
+            // another request took the same MeLo/MaLo between the check and the save
+            throw new OCPICustomException(
+                    "metering_location_id, market_location_id and malo must be unique",
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
         } catch (Exception e) {
             throw new RuntimeException("Unexpected error while patching smart location", e);
         }
+    }
+
+    /**
+     * A MeLo or MaLo belongs to one smart location: two locations sharing one would read the same
+     * meter readings and settle the same energy twice. Blank values are not identifiers and are
+     * never compared.
+     */
+    private void validateUniqueIdentifiers(SmartLocation location) {
+        rejectIfUsedElsewhere(location, "metering_location_id", location.getMeteringLocationId(),
+                smartLocationRepository::findAllByMeteringLocationId);
+        rejectIfUsedElsewhere(location, "market_location_id", location.getMarketLocationId(),
+                smartLocationRepository::findAllByMarketLocationId);
+        rejectIfUsedElsewhere(location, "malo", location.getMalo(), smartLocationRepository::findAllByMalo);
+    }
+
+    private void rejectIfUsedElsewhere(SmartLocation location, String field, String value,
+            Function<String, List<MongoSmartLocation>> holders) {
+        if (isBlank(value)) {
+            return;
+        }
+        List<String> others = holders.apply(value).stream()
+                .filter(other -> !locationKey(other).equals(locationKey(location)))
+                .map(NSPSmartLocationServiceImpl::locationKey)
+                .toList();
+        if (!others.isEmpty()) {
+            throw new OCPICustomException(
+                    field + " '" + value + "' is already used by smart location " + String.join(", ", others),
+                    Constants.STATUS_CODE_INVALID_OR_MISSING_PARAMETERS);
+        }
+    }
+
+    private static String locationKey(SmartLocation location) {
+        return location.getCountryCode() + "*" + location.getPartyId() + "*" + location.getId();
     }
 
     private void validateAndPopulateLocationIdentifiers(SmartLocationDTO locationDTO, String countryCode,
