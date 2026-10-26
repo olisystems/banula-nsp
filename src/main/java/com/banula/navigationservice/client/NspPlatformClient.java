@@ -5,6 +5,7 @@ import com.banula.openlib.ocpi.exception.OCPICustomException;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.LocationDTO;
 import com.banula.openlib.ocpi.util.Constants;
+import com.banula.openlib.trace.TraceContext;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
@@ -20,7 +21,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Banula-platform client: SENDER pulls from parties, RECEIVER puts to the hub (DE/BAN) so the node
@@ -121,15 +121,15 @@ public class NspPlatformClient {
             String toPartyId,
             B body,
             ParameterizedTypeReference<OcpiResponse<T>> responseType) {
-        try {
+        try (TraceContext.Outgoing trace = TraceContext.outgoing()) {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.add("Accept", "*/*");
-            headers.set("X-Request-ID", UUID.randomUUID().toString());
-            headers.set("X-Correlation-ID", UUID.randomUUID().toString());
+            trace.applyTo(headers::set);
             headers.set("OCPI-to-country-code", toCountryCode);
             headers.set("OCPI-to-party-id", toPartyId);
 
+            trace.log(method, url);
             ResponseEntity<OcpiResponse<T>> response = restTemplate.exchange(
                     url,
                     method,
