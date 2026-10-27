@@ -43,7 +43,7 @@ public class NSPNotificationServiceImpl implements NSPNotificationService {
                     List.of(),
                     Map.of());
         } catch (Exception e) {
-            log.debug("Error broadcasting client info party update {} ({}): {}",
+            log.error("Error broadcasting client info party update {} ({}): {}",
                     clientInfo.getPartyId(), clientInfo.getCountryCode(), e.getMessage());
         }
     }
