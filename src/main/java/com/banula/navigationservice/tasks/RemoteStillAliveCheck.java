@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 
 import com.banula.navigationservice.config.ApplicationConfiguration;
@@ -18,6 +19,7 @@ import com.banula.navigationservice.mapper.ClientInfoMapper;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.service.HubClientInfoService;
 import com.banula.navigationservice.service.NSPNotificationService;
+import com.banula.openlib.ocpi.exception.OcpiUpstreamException;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.dto.response.VersionResponseDTO;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
@@ -110,6 +112,16 @@ public class RemoteStillAliveCheck implements Runnable {
                             },
                             List.of(),
                             Map.of());
+                } catch (OcpiUpstreamException e) {
+                    // The party, or the hub on its behalf, answered with an OCPI error: no response, so
+                    // the check below marks the party offline. A non-2xx from the platform says nothing
+                    // about the party, so it propagates and the party's status is left alone.
+                    if (HttpStatusCode.valueOf(e.getHttpStatus()).is2xxSuccessful()) {
+                        log.debug("Party {} ({}) answered its versions endpoint with an error: {}",
+                                party.getPartyId(), party.getCountryCode(), e.getErrorMessage());
+                        return null;
+                    }
+                    throw e;
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

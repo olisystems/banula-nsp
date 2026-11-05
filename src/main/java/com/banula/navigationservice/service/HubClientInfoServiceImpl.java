@@ -23,6 +23,7 @@ import com.banula.navigationservice.model.MongoClientInfo;
 import com.banula.navigationservice.model.dto.HubClientInfoDTO;
 import com.banula.navigationservice.repository.HubClientInfoRepository;
 import com.banula.openlib.ocpi.exception.OCPICustomException;
+import com.banula.openlib.ocpi.exception.OcpiUpstreamException;
 import com.banula.openlib.ocpi.model.OcpiResponse;
 import com.banula.openlib.ocpi.model.enums.ConnectionStatus;
 import com.banula.openlib.ocpi.model.enums.InterfaceRole;
@@ -206,20 +207,14 @@ public class HubClientInfoServiceImpl implements HubClientInfoService {
           },
           List.of(),
           Map.of());
+    } catch (OcpiUpstreamException ex) {
+      // PlatformClient only returns 1xxx answers with a body; anything else lands here, and the
+      // hub's status code goes back to the caller of the sync.
+      throw new OCPICustomException("The hub rejected the HubClientInfo request: " + ex.getErrorMessage(),
+          ex.getStatusCode());
     } catch (Exception ex) {
       throw new OCPICustomException(
           "Could not reach the hub to sync HubClientInfo: " + ex.getLocalizedMessage());
-    }
-
-    if (hubClientInfoParties == null) {
-      throw new OCPICustomException("The hub returned an empty HubClientInfo response");
-    }
-    // Only the OCPI 1xxx range is a success; 2xxx (client) and 3xxx (server) codes are errors,
-    // so 2000 must not slip through and be reported as an empty-but-successful sync.
-    int statusCode = hubClientInfoParties.getStatus_code();
-    if (statusCode < 1000 || statusCode >= 2000) {
-      throw new OCPICustomException(
-          "The hub rejected the HubClientInfo request: " + hubClientInfoParties.getStatus_message());
     }
 
     List<HubClientInfoDTO> parties = hubClientInfoParties.getData();
